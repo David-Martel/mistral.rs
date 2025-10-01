@@ -55,12 +55,12 @@ pub struct BnbQuantState {
 }
 
 #[derive(Debug, Clone)]
-pub struct BnbQuantParmas {
+pub struct BnbQuantParams {
     pub absmax: Tensor,
     pub code: Tensor,
     pub blocksize: usize,
     pub shape: Option<Shape>,
-    pub nested: Option<Arc<BnbQuantParmas>>,
+    pub nested: Option<Arc<BnbQuantParams>>,
     pub offset: Option<f64>,
     pub dtype: BnbDType,
 }
@@ -69,7 +69,7 @@ pub struct BnbQuantParmas {
 pub struct BnbLinear {
     weight: Tensor,
     bias: Option<Tensor>,
-    params: BnbQuantParmas,
+    params: BnbQuantParams,
     quant_ty: BnbQuantType,
 }
 
@@ -122,8 +122,8 @@ impl BnbLinear {
             serde_json::from_str(&state_str).map_err(candle_core::Error::msg)?;
 
         let nested = if vb_w.contains_tensor("nested_absmax") {
-            // TODO @codex: can `nested_blocksize` be None, default to 64 like bnb?
-            Some(Arc::new(BnbQuantParmas {
+            // TODO: can `nested_blocksize` be None, default to 64 like bnb?
+            Some(Arc::new(BnbQuantParams {
                 absmax: vb_w.get_unchecked_dtype("nested_absmax", DType::F32)?,
                 code: vb_w.get_unchecked_dtype("nested_quant_map", DType::F32)?,
                 blocksize: state
@@ -146,7 +146,7 @@ impl BnbLinear {
             vb_w.get_unchecked_dtype("absmax", DType::F32)?
         };
 
-        let params = BnbQuantParmas {
+        let params = BnbQuantParams {
             absmax,
             code: vb_w.get_unchecked_dtype("quant_map", DType::F32)?,
             blocksize: state.blocksize,
@@ -167,7 +167,7 @@ impl BnbLinear {
     /// Dequantize input (u8). Handles nested absmax dequantization.
     fn dequantize(
         input: &Tensor,
-        params: &BnbQuantParmas,
+        params: &BnbQuantParams,
         quant_ty: BnbQuantType,
     ) -> Result<Tensor> {
         let mut absmax = params.absmax.clone();
@@ -264,11 +264,7 @@ impl QuantMethod for BnbLinear {
         _imatrix_weight: Option<Vec<f32>>,
         _guard: QuantizeOntoGuard,
     ) -> Result<Arc<dyn QuantMethod>> {
-        candle_core::bail!(
-            "In-situ quantization (ISQ) is not yet supported for BitsAndBytes quantization. \
-            BitsAndBytes layers are already quantized. To requantize to a different format, \
-            please use GGUF or ISQ quantization directly on the original model."
-        )
+        todo!()
     }
 }
 
