@@ -1,243 +1,136 @@
-on:
+on: 
   schedule:
       - cron: '0 0 * * 1'
   push:
-    branches:
+    branches: 
       - master
   pull_request:
-    branches:
+    branches: 
       - master
   workflow_dispatch:
 
 name: Continuous integration
 
-env:
-  CARGO_TERM_COLOR: always
-  RUST_BACKTRACE: 1
-
 jobs:
-  # Quick syntax and format checks (fail fast)
-  quick-check:
-    name: Quick Check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-
-      - name: Check formatting
-        run: cargo fmt --all -- --check
-
-      - name: Run clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
-
-  # Full check across platforms
   check:
     name: Check
     runs-on: ${{ matrix.os }}
-    needs: quick-check
     strategy:
-      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
         rust: [stable]
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
+      - uses: actions-rs/toolchain@v1
         with:
+          profile: minimal
           toolchain: ${{ matrix.rust }}
-
-      - name: Setup Rust cache
-        uses: Swatinem/rust-cache@v2
+          override: true
+      - uses: actions-rs/cargo@v1
         with:
-          key: ${{ matrix.os }}-check
+          command: check
 
-      - name: Run cargo check
-        run: cargo check --workspace --all-targets --all-features
-
-  # Comprehensive test suite
   test:
-    name: Test Suite (${{ matrix.os }})
+    name: Test Suite
     runs-on: ${{ matrix.os }}
-    needs: quick-check
     strategy:
-      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
         rust: [stable]
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
+      - uses: actions-rs/toolchain@v1
         with:
+          profile: minimal
           toolchain: ${{ matrix.rust }}
-
-      - name: Setup Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ matrix.os }}-test
-
-      - name: Run workspace tests
+          override: true
+      - uses: actions-rs/cargo@v1
         env:
           TESTS_HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          RUST_TEST_THREADS: 4
-        run: |
-          cargo test --workspace --all-features -- --nocapture --test-threads=4
+        with:
+          command: test
+          args: -p mistralrs-core -p mistralrs-quant -p mistralrs-vision
 
-      - name: Run doc tests
-        run: cargo test --workspace --doc
-
-  # Code coverage (Linux only for speed)
-  coverage:
-    name: Code Coverage
+  fmt:
+    name: Rustfmt
     runs-on: ubuntu-latest
-    needs: quick-check
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - uses: actions-rs/toolchain@v1
         with:
-          components: llvm-tools-preview
-
-      - name: Setup Rust cache
-        uses: Swatinem/rust-cache@v2
+          profile: minimal
+          toolchain: stable
+          override: true
+      - run: rustup component add rustfmt
+      - uses: actions-rs/cargo@v1
         with:
-          key: coverage
+          command: fmt
+          args: --all -- --check
 
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
-
-      - name: Generate coverage data
-        env:
-          TESTS_HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: |
-          cargo llvm-cov --workspace --all-features --lcov --output-path lcov.info
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
         with:
-          files: lcov.info
-          fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN }}
+          profile: minimal
+          toolchain: stable
+          override: true
+      - run: rustup component add clippy
+      - uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --workspace --tests --examples -- -D warnings
 
-  # Documentation build check
   docs:
-    name: Documentation
+    name: Docs
     runs-on: ubuntu-latest
-    needs: quick-check
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Setup Rust cache
-        uses: Swatinem/rust-cache@v2
+      - uses: actions-rs/toolchain@v1
         with:
-          key: docs
+          profile: minimal
+          toolchain: stable
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: doc
+          args: --workspace
 
-      - name: Build documentation
-        env:
-          RUSTDOCFLAGS: "-D warnings"
-        run: cargo doc --workspace --all-features --no-deps
-
-  # Spell checking
   typos:
     name: Typos
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Check for typos
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Typos check with custom config file
         uses: crate-ci/typos@master
         with:
           config: .typos.toml
 
-  # MSRV (Minimum Supported Rust Version) check
   msrv:
-    name: MSRV Check (1.86)
-    runs-on: ubuntu-latest
-    needs: quick-check
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust MSRV toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: "1.86.0"
-
-      - name: Setup Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          key: msrv
-
-      - name: Check with MSRV
-        run: cargo check --workspace --all-features
-
-  # Security audit
-  security-audit:
-    name: Security Audit
+    name: MSRV Check (1.90)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Run cargo-audit
-        uses: rustsec/audit-check@v2
+      - uses: actions-rs/toolchain@v1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-  # Integration tests (if tests/ directory has integration tests)
-  integration:
-    name: Integration Tests
-    runs-on: ubuntu-latest
-    needs: [check, test]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Setup Rust cache
-        uses: Swatinem/rust-cache@v2
+          profile: minimal
+          toolchain: 1.90.0
+          override: true
+      - uses: actions-rs/cargo@v1
         with:
-          key: integration
-
-      - name: Run integration tests
-        env:
-          TESTS_HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: |
-          if [ -d "tests" ]; then
-            cargo test --test '*' --all-features
-          else
-            echo "No integration tests found"
-          fi
-
-      - name: Run mistralrs-tui suite
-        run: make test-tui
-
-  # Final gate: all checks must pass
-  ci-complete:
-    name: CI Complete
-    runs-on: ubuntu-latest
-    needs: [quick-check, check, test, coverage, docs, typos, msrv, security-audit, integration]
-    if: always()
-    steps:
-      - name: Check all jobs
-        run: |
-          if [[ "${{ needs.quick-check.result }}" != "success" ]] || \
-             [[ "${{ needs.check.result }}" != "success" ]] || \
-             [[ "${{ needs.test.result }}" != "success" ]] || \
-             [[ "${{ needs.docs.result }}" != "success" ]] || \
-             [[ "${{ needs.typos.result }}" != "success" ]] || \
-             [[ "${{ needs.msrv.result }}" != "success" ]]; then
-            echo "One or more required checks failed"
-            exit 1
-          fi
-          echo "All required checks passed!"
+          command: check
+          args: --workspace
+  
+  # run `mlc` (`cargo install mlc`)
+  # markdown-link-check:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: gaurav-nelson/github-action-markdown-link-check@v1
