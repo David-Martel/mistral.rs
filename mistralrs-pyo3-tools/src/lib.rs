@@ -11,16 +11,16 @@
 //! - **File locking**: Advisory locks for concurrent access
 //! - **Audit logging**: Structured logs of all filesystem operations
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use camino::{Utf8Path, Utf8PathBuf};
-use fs4::FileExt;
-use globset::{Glob, GlobSet, GlobSetBuilder};
+use fs4::fs_std::FileExt;
+use globset::{Glob, GlobSetBuilder};
 use ignore::WalkBuilder;
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::PathBuf;
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 
 #[cfg(feature = "pyo3-bindings")]
 use pyo3::prelude::*;
@@ -134,24 +134,72 @@ impl FsTools {
             self.config.root.join(path)
         };
 
-        // Canonicalize to resolve symlinks and normalize
-        let canonical = absolute
-            .canonicalize_utf8()
-            .map_err(|e| FsError::InvalidPath(format!("{}: {}", path, e)))?;
+        // Try to canonicalize the longest existing prefix
+        let mut current = absolute.as_path();
+        let mut suffix = Utf8PathBuf::new();
 
-        // Check if path is within sandbox
-        if self.config.enforce && !canonical.starts_with(&self.config.root) {
-            warn!("Path traversal attempt blocked: {}", canonical);
-            return Err(FsError::OutsideSandbox(canonical.to_string()));
+        while !current.exists() {
+            if let Some(parent) = current.parent() {
+                if let Some(name) = current.file_name() {
+                    // Prepend name to suffix
+                    let mut new_suffix = Utf8PathBuf::from(name);
+                    if !suffix.as_str().is_empty() {
+                        new_suffix.push(&suffix);
+                    }
+                    suffix = new_suffix;
+
+                    current = parent;
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
         }
 
-        Ok(canonical)
+        // If current doesn't exist here, it means even root doesn't exist or something went wrong
+        if !current.exists() {
+             // Fallback to canonicalizing absolute (will fail) to generate error
+             let _ = absolute.canonicalize_utf8().map_err(|e| FsError::InvalidPath(format!("{}: {}", path, e)))?;
+        }
+
+        let canonical_base = current.canonicalize_utf8()
+            .map_err(|e| FsError::InvalidPath(format!("Failed to canonicalize base {}: {}", current, e)))?;
+
+        if self.config.enforce && !canonical_base.starts_with(&self.config.root) {
+            warn!("Path traversal attempt blocked (base outside): {}", canonical_base);
+            return Err(FsError::OutsideSandbox(canonical_base.to_string()));
+        }
+
+        // Check suffix for '..'
+        for component in suffix.components() {
+            if matches!(component, camino::Utf8Component::ParentDir) {
+                return Err(FsError::InvalidPath("Path contains '..' in non-existent portion".to_string()));
+            }
+        }
+
+        let final_path = if suffix.as_str().is_empty() {
+            canonical_base
+        } else {
+            canonical_base.join(suffix)
+        };
+
+        if self.config.enforce && !final_path.starts_with(&self.config.root) {
+            return Err(FsError::OutsideSandbox(final_path.to_string()));
+        }
+
+        Ok(final_path)
     }
 
     /// Check if a path is read-only
     fn is_readonly(&self, path: &Utf8Path) -> bool {
         self.config.readonly_paths.iter().any(|ro| {
-            path.starts_with(ro) || path.ends_with(ro)
+            let abs_ro = if ro.is_absolute() {
+                ro.clone()
+            } else {
+                self.config.root.join(ro)
+            };
+            path.starts_with(&abs_ro)
         })
     }
 
@@ -311,7 +359,8 @@ impl FsTools {
         info!("Listing tree from: {}", start_path);
 
         let mut results = Vec::new();
-        let mut walker = WalkBuilder::new(&start_path).hidden(false);
+        let mut walker = WalkBuilder::new(&start_path);
+        walker.hidden(false);
 
         if let Some(depth) = max_depth {
             walker.max_depth(Some(depth));
@@ -388,7 +437,7 @@ fn fs_tree(root: Option<String>, max_depth: Option<usize>) -> PyResult<Vec<Strin
 
 #[cfg(feature = "pyo3-bindings")]
 #[pymodule]
-fn mistralrs_pyo3_tools(_py: Python, m: &PyModule) -> PyResult<()> {
+fn mistralrs_pyo3_tools(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(fs_read, m)?)?;
     m.add_function(wrap_pyfunction!(fs_write, m)?)?;
     m.add_function(wrap_pyfunction!(fs_append, m)?)?;

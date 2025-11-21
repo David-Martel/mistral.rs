@@ -2256,6 +2256,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "fs4"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e871a4cfa68bb224863b53149d973df1ac8d1ed2fa1d1bfc37ac1bb65dd37207"
+dependencies = [
+ "rustix 0.38.44",
+ "windows-sys 0.52.0",
+]
+
+[[package]]
 name = "fsevent-sys"
 version = "4.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4286,6 +4296,23 @@ dependencies = [
  "serde_json",
  "tokio",
  "url",
+]
+
+[[package]]
+name = "mistralrs-pyo3-tools"
+version = "0.6.0"
+dependencies = [
+ "anyhow",
+ "camino",
+ "fs4",
+ "globset",
+ "ignore",
+ "pyo3",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.12",
+ "tracing",
 ]
 
 [[package]]
