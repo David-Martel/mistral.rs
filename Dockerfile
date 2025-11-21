@@ -45,6 +45,10 @@ COPY mistralrs-audio/Cargo.toml ./mistralrs-audio/
 COPY mistralrs-mcp/Cargo.toml ./mistralrs-mcp/
 COPY mistralrs-bench/Cargo.toml ./mistralrs-bench/
 COPY mistralrs-web-chat/Cargo.toml ./mistralrs-web-chat/
+COPY mistralrs-agent-tools/Cargo.toml ./mistralrs-agent-tools/
+COPY mistralrs-pyo3/Cargo.toml ./mistralrs-pyo3/
+COPY mistralrs-pyo3-tools/Cargo.toml ./mistralrs-pyo3-tools/
+COPY mistralrs-tui/Cargo.toml ./mistralrs-tui/
 
 # Create dummy source files to cache dependencies
 RUN mkdir -p \
@@ -58,7 +62,11 @@ RUN mkdir -p \
     mistralrs-audio/src \
     mistralrs-mcp/src \
     mistralrs-bench/src \
-    mistralrs-web-chat/src && \
+    mistralrs-web-chat/src \
+    mistralrs-agent-tools/src \
+    mistralrs-pyo3/src \
+    mistralrs-pyo3-tools/src \
+    mistralrs-tui/src && \
     echo "fn main() {}" > mistralrs-server/src/main.rs && \
     echo "fn main() {}" > mistralrs-bench/src/main.rs && \
     touch mistralrs-core/src/lib.rs && \
@@ -69,7 +77,11 @@ RUN mkdir -p \
     touch mistralrs-paged-attn/src/lib.rs && \
     touch mistralrs-audio/src/lib.rs && \
     touch mistralrs-mcp/src/lib.rs && \
-    touch mistralrs-web-chat/src/lib.rs
+    touch mistralrs-web-chat/src/lib.rs && \
+    touch mistralrs-agent-tools/src/lib.rs && \
+    touch mistralrs-pyo3/src/lib.rs && \
+    touch mistralrs-pyo3-tools/src/lib.rs && \
+    touch mistralrs-tui/src/lib.rs
 
 # Build dependencies only (will be cached)
 RUN cargo build --release \

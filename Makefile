@@ -41,3 +41,12 @@ install-coverage-tools:
 	rustup component add llvm-tools-preview
 	cargo install cargo-llvm-cov
 	@echo "Coverage tools installed!"
+
+build-windows:
+	@echo "Building for Windows (cross-compile via Docker)..."
+	docker build -f Dockerfile.windows -t mistralrs-windows .
+	@echo "Extracting binary..."
+	docker create --name mistralrs-windows-extract mistralrs-windows
+	docker cp mistralrs-windows-extract:/build/target/x86_64-pc-windows-gnu/release/mistralrs-server.exe ./mistralrs-server.exe
+	docker rm mistralrs-windows-extract
+	@echo "Windows binary saved to mistralrs-server.exe"

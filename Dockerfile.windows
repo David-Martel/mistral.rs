@@ -1,0 +1,79 @@
+FROM rust:latest AS builder
+
+# Install MinGW-w64 for cross-compilation
+RUN apt-get update && apt-get install -y \
+    mingw-w64 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Add Windows GNU target
+RUN rustup target add x86_64-pc-windows-gnu
+
+WORKDIR /build
+
+# Copy workspace configuration
+COPY Cargo.toml Cargo.lock ./
+COPY mistralrs-core/Cargo.toml ./mistralrs-core/
+COPY mistralrs-server/Cargo.toml ./mistralrs-server/
+COPY mistralrs-server-core/Cargo.toml ./mistralrs-server-core/
+COPY mistralrs/Cargo.toml ./mistralrs/
+COPY mistralrs-vision/Cargo.toml ./mistralrs-vision/
+COPY mistralrs-quant/Cargo.toml ./mistralrs-quant/
+COPY mistralrs-paged-attn/Cargo.toml ./mistralrs-paged-attn/
+COPY mistralrs-audio/Cargo.toml ./mistralrs-audio/
+COPY mistralrs-mcp/Cargo.toml ./mistralrs-mcp/
+COPY mistralrs-bench/Cargo.toml ./mistralrs-bench/
+COPY mistralrs-web-chat/Cargo.toml ./mistralrs-web-chat/
+COPY mistralrs-agent-tools/Cargo.toml ./mistralrs-agent-tools/
+COPY mistralrs-pyo3/Cargo.toml ./mistralrs-pyo3/
+COPY mistralrs-pyo3-tools/Cargo.toml ./mistralrs-pyo3-tools/
+COPY mistralrs-tui/Cargo.toml ./mistralrs-tui/
+
+# Create dummy source files to cache dependencies
+RUN mkdir -p \
+    mistralrs-core/src \
+    mistralrs-server/src \
+    mistralrs-server-core/src \
+    mistralrs/src \
+    mistralrs-vision/src \
+    mistralrs-quant/src \
+    mistralrs-paged-attn/src \
+    mistralrs-audio/src \
+    mistralrs-mcp/src \
+    mistralrs-bench/src \
+    mistralrs-web-chat/src \
+    mistralrs-agent-tools/src \
+    mistralrs-pyo3/src \
+    mistralrs-pyo3-tools/src \
+    mistralrs-tui/src && \
+    echo "fn main() {}" > mistralrs-server/src/main.rs && \
+    echo "fn main() {}" > mistralrs-bench/src/main.rs && \
+    touch mistralrs-core/src/lib.rs && \
+    touch mistralrs-server-core/src/lib.rs && \
+    touch mistralrs/src/lib.rs && \
+    touch mistralrs-vision/src/lib.rs && \
+    touch mistralrs-quant/src/lib.rs && \
+    touch mistralrs-paged-attn/src/lib.rs && \
+    touch mistralrs-audio/src/lib.rs && \
+    touch mistralrs-mcp/src/lib.rs && \
+    touch mistralrs-web-chat/src/lib.rs && \
+    touch mistralrs-agent-tools/src/lib.rs && \
+    touch mistralrs-pyo3/src/lib.rs && \
+    touch mistralrs-pyo3-tools/src/lib.rs && \
+    touch mistralrs-tui/src/lib.rs
+
+# Build dependencies (excluding CUDA features due to cross-compilation limits)
+RUN cargo build --release \
+    --target x86_64-pc-windows-gnu \
+    --package mistralrs-server \
+    --features "mkl" && \
+    rm -rf target/x86_64-pc-windows-gnu/release/.fingerprint/mistralrs* && \
+    rm -rf target/x86_64-pc-windows-gnu/release/deps/mistralrs*
+
+# Copy source code
+COPY . .
+
+# Build final binary
+RUN cargo build --release \
+    --target x86_64-pc-windows-gnu \
+    --package mistralrs-server \
+    --features "mkl"
