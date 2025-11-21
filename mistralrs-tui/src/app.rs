@@ -110,6 +110,12 @@ impl Metrics {
     }
 }
 
+impl Default for Metrics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Helper used by the status bar to communicate user-facing updates.
 #[derive(Debug, Clone)]
 pub struct StatusLine {

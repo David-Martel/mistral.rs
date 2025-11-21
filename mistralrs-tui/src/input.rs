@@ -97,7 +97,7 @@ fn convert_crossterm_code(code: crossterm::event::KeyCode) -> KeyCode {
         C::Delete => KeyCode::Delete,
         C::Insert => KeyCode::Insert,
         C::Esc => KeyCode::Esc,
-        C::F(number) => KeyCode::Function(number as u8),
+        C::F(number) => KeyCode::Function(number),
         C::Char(c) => KeyCode::Char(c),
         _ => KeyCode::Unknown,
     }

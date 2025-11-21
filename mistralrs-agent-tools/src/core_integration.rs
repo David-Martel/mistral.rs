@@ -47,26 +47,19 @@ impl AgentToolProvider {
 
     /// Generate all Tool definitions for agent-tools utilities
     pub fn get_tools(&self) -> Vec<Tool> {
-        let mut tools = Vec::new();
-
-        // File operations
-        tools.push(self.create_cat_tool());
-        tools.push(self.create_ls_tool());
-
-        // Text processing
-        tools.push(self.create_grep_tool());
-        tools.push(self.create_head_tool());
-        tools.push(self.create_tail_tool());
-        tools.push(self.create_wc_tool());
-        tools.push(self.create_sort_tool());
-        tools.push(self.create_uniq_tool());
-
-        // Shell execution
-        tools.push(self.create_shell_tool());
-
+        // File operations, Text processing, Shell execution
         // Additional utilities are tracked in TODO_ANALYSIS.md for future integration
-
-        tools
+        vec![
+            self.create_cat_tool(),
+            self.create_ls_tool(),
+            self.create_grep_tool(),
+            self.create_head_tool(),
+            self.create_tail_tool(),
+            self.create_wc_tool(),
+            self.create_sort_tool(),
+            self.create_uniq_tool(),
+            self.create_shell_tool(),
+        ]
     }
 
     /// Generate ToolCallbackWithTool for mistralrs-core integration
