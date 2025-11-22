@@ -159,17 +159,28 @@ impl T5RelativeAttentionLogitBias {
         let mut bucket = if self.symmetric {
             let half = (total_buckets / 2).max(1);
             let offset = if position > 0 { half } else { 0 };
-            let abs_pos = position.abs();
-            offset + self.bucket_single_side(abs_pos, half, max_distance)
+            // SAFETY: position.abs() cannot overflow for typical relative positions
+            // (max sequence length << i64::MAX), but we use checked_abs() for robustness
+            let abs_pos = position.checked_abs().unwrap_or(i64::MAX);
+            let single_side = self.bucket_single_side(abs_pos, half, max_distance);
+            // OVERFLOW FIX: Use saturating_add to prevent overflow when combining offset
+            // with bucket_single_side result. This is critical for large position values
+            // where offset + single_side could exceed i64::MAX.
+            offset.saturating_add(single_side)
         } else {
             // Non-symmetric: positive positions use second half of buckets
             if position >= 0 {
                 let half = (total_buckets / 2).max(1);
-                half + self.bucket_single_side(position, half, max_distance)
+                let single_side = self.bucket_single_side(position, half, max_distance);
+                // OVERFLOW FIX: Use saturating_add for non-symmetric case as well
+                half.saturating_add(single_side)
             } else {
-                self.bucket_single_side(-position, total_buckets / 2, max_distance)
+                // SAFETY: Negate safely - worst case is i64::MIN becomes i64::MAX
+                let abs_pos = position.checked_abs().unwrap_or(i64::MAX);
+                self.bucket_single_side(abs_pos, total_buckets / 2, max_distance)
             }
         };
+        // Clamp to valid bucket range [0, total_buckets-1]
         if bucket >= total_buckets {
             bucket = total_buckets - 1;
         }
@@ -189,7 +200,18 @@ impl T5RelativeAttentionLogitBias {
         let base_denominator = ((max_distance.max(max_exact)) as f64 / max_exact as f64).ln();
         let mut bucket = max_exact;
         if base_denominator.is_finite() && base_denominator > 0.0 {
-            bucket += ((log_ratio / base_denominator) * remaining as f64).floor() as i64;
+            // OVERFLOW FIX: The logarithmic calculation can produce extreme values.
+            // We compute the bucket increment separately and clamp it before addition.
+            let log_bucket_increment = ((log_ratio / base_denominator) * remaining as f64).floor();
+            // Ensure the increment is within a safe range before converting to i64
+            let safe_increment = if log_bucket_increment.is_finite() {
+                log_bucket_increment.clamp(0.0, (num_buckets - max_exact) as f64) as i64
+            } else {
+                // If infinite/NaN, use maximum remaining buckets
+                remaining
+            };
+            // Use saturating_add to prevent overflow in the final addition
+            bucket = bucket.saturating_add(safe_increment);
         }
         bucket.min(num_buckets - 1)
     }

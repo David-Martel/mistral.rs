@@ -400,12 +400,12 @@ impl MistralRs {
     ) -> Result<EngineInstance, String> {
         let (tx, rx) = channel(10_000);
 
-        let category = pipeline.try_lock().unwrap().category();
-        let kind = pipeline.try_lock().unwrap().get_metadata().kind.clone();
-        let device = pipeline.try_lock().unwrap().device();
+        let category = pipeline.try_lock().expect("Failed to acquire lock on pipeline to get category during engine instance creation").category();
+        let kind = pipeline.try_lock().expect("Failed to acquire lock on pipeline to get model kind during engine instance creation").get_metadata().kind.clone();
+        let device = pipeline.try_lock().expect("Failed to acquire lock on pipeline to get device during engine instance creation").device();
         let modalities = pipeline
             .try_lock()
-            .unwrap()
+            .expect("Failed to acquire lock on pipeline to get modalities during engine instance creation")
             .get_metadata()
             .modalities
             .clone();
@@ -423,7 +423,7 @@ impl MistralRs {
         let engine_handler = thread::spawn(move || {
             #[cfg(feature = "metal")]
             objc::rc::autoreleasepool(move || {
-                let rt = Runtime::new().unwrap();
+                let rt = Runtime::new().expect("Failed to initialize Tokio runtime for mistral.rs engine thread. This is a critical error indicating system resource exhaustion or incompatibility.");
                 rt.block_on(async move {
                     let engine = Engine::new(
                         rx,
@@ -447,7 +447,7 @@ impl MistralRs {
 
             #[cfg(not(feature = "metal"))]
             {
-                let rt = Runtime::new().unwrap();
+                let rt = Runtime::new().expect("Failed to initialize Tokio runtime for mistral.rs engine thread. This is a critical error indicating system resource exhaustion or incompatibility.");
                 rt.block_on(async move {
                     let engine = Engine::new(
                         rx,
@@ -579,7 +579,7 @@ impl MistralRs {
             Self::create_engine_instance(pipeline.clone(), method, engine_config, reboot_state)
                 .expect("Failed to create engine instance");
 
-        let id = pipeline.try_lock().unwrap().name();
+        let id = pipeline.try_lock().expect("Failed to acquire lock on pipeline to get model name during MistralRs initialization").name();
 
         if distributed::is_daemon() {
             let request_sender = engine_instance.sender.clone();
@@ -636,7 +636,7 @@ impl MistralRs {
                 }));
                 info!("Beginning dummy run.");
                 let start = Instant::now();
-                clone_sender.blocking_send(req).unwrap();
+                clone_sender.blocking_send(req).expect("Failed to send dummy request to engine during initialization. This indicates the engine channel is already closed.");
 
                 if let Some(_resp) = rx.blocking_recv() {
                     let end = Instant::now();

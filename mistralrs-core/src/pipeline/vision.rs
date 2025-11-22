@@ -176,7 +176,7 @@ impl VisionLoaderBuilder {
         };
         Box::new(VisionLoader {
             inner: loader,
-            model_id: self.model_id.unwrap(),
+            model_id: self.model_id.expect("Model ID must be set before building vision pipeline. Call .model_id(...) on the builder."),
             config: self.config,
             kind: self.kind,
             chat_template: self.chat_template,
@@ -568,14 +568,14 @@ impl Loader for VisionLoader {
         let preprocessor_config: PreProcessorConfig = match paths.get_preprocessor_config().as_ref()
         {
             Some(preprocessor_config) => {
-                serde_json::from_str(&fs::read_to_string(preprocessor_config).unwrap()).unwrap()
+                serde_json::from_str(&fs::read_to_string(preprocessor_config).expect(&format!("Failed to read preprocessor config file: {:?}", preprocessor_config))).expect(&format!("Failed to parse preprocessor config JSON from {:?}", preprocessor_config))
             }
             None => PreProcessorConfig::default(),
         };
         let processor_config: Option<ProcessorConfig> = paths
             .get_processor_config()
             .as_ref()
-            .map(|f| serde_json::from_str(&fs::read_to_string(f).unwrap()).unwrap());
+            .map(|f| serde_json::from_str(&fs::read_to_string(f).expect(&format!("Failed to read processor config file: {:?}", f))).expect(&format!("Failed to parse processor config JSON from {:?}", f)));
 
         let processor = self.inner.get_processor(
             &config,
@@ -591,7 +591,7 @@ impl Loader for VisionLoader {
 
         let gen_conf: Option<GenerationConfig> = paths
             .get_gen_conf_filename()
-            .map(|f| serde_json::from_str(&fs::read_to_string(f).unwrap()).unwrap());
+            .map(|f| serde_json::from_str(&fs::read_to_string(f).expect(&format!("Failed to read generation config file: {:?}", f))).expect(&format!("Failed to parse generation config JSON from {:?}", f)));
         let chat_template_explicit = paths
             .get_chat_template_explicit()
             .as_ref()
@@ -714,7 +714,7 @@ impl Loader for VisionLoader {
                 },
                 Arc::new(MultiProgress::new()),
             )?;
-        } else if let Some(from_uqff) = &*self.from_uqff.read().unwrap() {
+        } else if let Some(from_uqff) = &*self.from_uqff.read().expect("Failed to acquire read lock on UQFF paths") {
             model.load_from_artifacts(
                 device.clone(),
                 self.config.topology.as_ref(),
@@ -1040,11 +1040,11 @@ impl AnyMoePipelineMixin for VisionPipeline {
                     if regex.is_match(&key) {
                         // Idx of the last char of the layer id, +1
                         // Assumes N.MLP
-                        let last_layer_idx = key.find(&match_regex_clone).unwrap() - 1;
-                        let first_layer_idx = key[..last_layer_idx].rfind('.').unwrap();
+                        let last_layer_idx = key.find(&match_regex_clone).expect(&format!("Failed to find regex pattern '{}' in weight key '{}' during AnyMoE layer creation", match_regex_clone, key)) - 1;
+                        let first_layer_idx = key[..last_layer_idx].rfind('.').expect(&format!("Failed to find layer delimiter '.' before position {} in weight key '{}' during AnyMoE layer creation", last_layer_idx, key));
                         let layer_n = key[first_layer_idx + 1..last_layer_idx]
                             .parse::<usize>()
-                            .unwrap();
+                            .expect(&format!("Failed to parse layer number from {} in weight key {} during AnyMoE layer creation", &key[first_layer_idx + 1..last_layer_idx], key));
                         layers_clone.contains(&layer_n) || layers_clone.is_empty()
                     } else {
                         false
