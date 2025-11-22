@@ -167,7 +167,7 @@ impl futures::Stream for ChatCompletionStreamer {
 
 /// Represents different types of chat completion responses.
 pub type ChatCompletionResponder =
-    BaseCompletionResponder<ChatCompletionResponse, ChatCompletionStreamer>;
+    BaseCompletionResponder<ChatCompletionResponse, KeepAliveStream<ChatCompletionStreamer>>;
 
 type JsonModelError = BaseJsonModelError<ChatCompletionResponse>;
 impl ErrorToResponse for JsonModelError {}

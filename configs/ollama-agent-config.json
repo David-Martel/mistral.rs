@@ -1,0 +1,71 @@
+{
+  "ollama": {
+    "endpoint": "http://localhost:11434",
+    "model": "qwen2.5-coder:7b",
+    "fallback_model": "qwen2.5-coder:3b",
+    "alternative_models": [
+      "gemma3:4b",
+      "deepseek-r1:7b"
+    ],
+    "temperature": 0.2,
+    "top_p": 0.9,
+    "max_tokens": 2048,
+    "timeout_secs": 120,
+    "retry_attempts": 3,
+    "retry_delay_secs": 5
+  },
+  "detection": {
+    "ast_grep_config": "tools/ast-grep/sgconfig.yml",
+    "panic_patterns_rule": ".ast-grep/rules/panic-patterns.yml",
+    "max_violations_per_run": 50,
+    "batch_size": 10,
+    "file_extensions": [
+      "rs"
+    ],
+    "exclude_patterns": [
+      "target/**",
+      "**/*test*.rs",
+      "examples/**"
+    ]
+  },
+  "git": {
+    "diff_threshold": 5,
+    "auto_commit": true,
+    "commit_prefix": "fix(panic)",
+    "commit_suffix": "\n\n🤖 Auto-fixed by panic-code agent",
+    "push_after_batch": false,
+    "create_branch": false,
+    "branch_prefix": "auto-fix/panic-patterns"
+  },
+  "safety": {
+    "require_compilation_check": true,
+    "require_syntax_check": true,
+    "require_pattern_verification": true,
+    "require_test_validation": false,
+    "max_retries_per_fix": 3,
+    "auto_rollback_on_failure": true,
+    "preserve_backups": false,
+    "backup_suffix": ".panic-fix-backup",
+    "max_concurrent_fixes": 1
+  },
+  "monitoring": {
+    "check_interval_seconds": 300,
+    "enable_background_monitor": false,
+    "log_file": ".logs/panic-agent.log",
+    "session_file": ".logs/panic-agent-session.json",
+    "verbose": true,
+    "log_level": "info"
+  },
+  "prompts": {
+    "unwrap_to_expect": "prompts/fix-unwrap.txt",
+    "panic_to_result": "prompts/fix-panic.txt",
+    "poor_expect": "prompts/enhance-expect.txt",
+    "unreachable": "prompts/fix-unreachable.txt"
+  },
+  "validation": {
+    "cargo_check_command": "cargo check --message-format=json",
+    "rustfmt_check_command": "rustfmt --check --edition 2021",
+    "max_fix_attempts": 3,
+    "require_clean_git_state": false
+  }
+}

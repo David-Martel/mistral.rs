@@ -159,7 +159,8 @@ impl futures::Stream for CompletionStreamer {
 }
 
 /// Represents different types of completion responses.
-pub type CompletionResponder = BaseCompletionResponder<CompletionResponse, CompletionStreamer>;
+pub type CompletionResponder =
+    BaseCompletionResponder<CompletionResponse, KeepAliveStream<CompletionStreamer>>;
 
 /// JSON error response structure for model errors.
 type JsonModelError = BaseJsonModelError<CompletionResponse>;

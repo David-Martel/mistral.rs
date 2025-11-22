@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Select-Object -First 1 -ExpandProperty FullName)",
+      "Bash(pwsh:*)",
+      "Bash(nvcc:*)",
+      "Bash(\"C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.44.35207\\bin\\Hostx64\\x64\\cl.exe\")",
+      "Bash(git log:*)",
+      "Bash(cargo clean:*)",
+      "Bash(cargo update:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(for file in .cargo/config.toml Cargo.toml Makefile mistralrs-core/src/lib.rs mistralrs-core/src/pipeline/auto.rs mistralrs-core/src/pipeline/speculative.rs mistralrs-core/src/pipeline/vision.rs mistralrs-core/src/sampler.rs)",
+      "Bash(do echo \"=== $file ===\")",
+      "Bash(done)",
+      "Bash(gh pr list:*)",
+      "Bash(git checkout:*)",
+      "Bash(git tag:*)",
+      "Bash(git push:*)",
+      "Bash(for commit in dcd2c7a07 f788be344 48cf293ad 308e1cdee 2bcf0e9e3)",
+      "Bash(do echo \"Checking $commit:\")",
+      "Bash(git cherry-pick:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git show:*)",
+      "Bash(set SKIP=cargo-check)",
+      "Bash(git config:*)",
+      "Bash(ast-grep scan:*)",
+      "Bash(cargo check:*)",
+      "Bash(python:*)",
+      "Bash(uv run python:*)",
+      "WebSearch"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

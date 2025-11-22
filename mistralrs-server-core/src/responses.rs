@@ -167,7 +167,8 @@ impl futures::Stream for ResponsesStreamer {
 }
 
 /// Response responder types
-pub type ResponsesResponder = BaseCompletionResponder<ResponsesObject, ResponsesStreamer>;
+pub type ResponsesResponder =
+    BaseCompletionResponder<ResponsesObject, KeepAliveStream<ResponsesStreamer>>;
 
 type JsonModelError = BaseJsonModelError<ResponsesObject>;
 impl ErrorToResponse for JsonModelError {}
