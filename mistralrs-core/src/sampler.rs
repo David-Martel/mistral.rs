@@ -616,9 +616,7 @@ impl Sampler {
     ) -> Result<Logprobs> {
         let distr = WeightedIndex::new(&*probs).map_err(Error::wrap)?;
 
-        let mut mut_ref_rng = &mut *rng
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut mut_ref_rng = &mut *rng.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let next_token = distr.sample(&mut mut_ref_rng); // "Find the first item which has a weight *higher* than the chosen weight."
         let logprob = probs[next_token].log(10.0);
 
