@@ -122,7 +122,10 @@ impl Resampler {
     }
 
     pub fn forward(&self, x: &Tensor, tgt_sizes_vec: &[Vec<u32>]) -> Result<Tensor> {
-        let mut pos_embed_cache = self.sincos_pos_embed.lock().unwrap();
+        let mut pos_embed_cache = self
+            .sincos_pos_embed
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
 
         let bs = x.dim(0)?;
         let device = x.device();

@@ -1,3 +1,53 @@
+# ============================================================================
+# Platform Detection & Feature Management
+# ============================================================================
+# Detect platform and set appropriate features to avoid cross-platform issues
+# (e.g., objc_exception on Windows when --all-features enables metal feature)
+
+# Detect operating system
+ifeq ($(OS),Windows_NT)
+    DETECTED_OS := Windows
+    # Windows: Use CUDA features, exclude macOS-only features
+    PLATFORM_FEATURES := cuda,flash-attn,cudnn,mkl
+    EXCLUDE_FEATURES := --exclude metal
+    SHELL := pwsh.exe
+    # Set NVCC compiler binary path for Windows CUDA builds
+    export NVCC_CCBIN := C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x64\cl.exe
+else
+    UNAME_S := $(shell uname -s)
+    ifeq ($(UNAME_S),Darwin)
+        DETECTED_OS := macOS
+        # macOS: Use Metal and Accelerate, exclude CUDA
+        PLATFORM_FEATURES := metal,accelerate
+        EXCLUDE_FEATURES :=
+    else
+        DETECTED_OS := Linux
+        # Linux: Use CUDA features
+        PLATFORM_FEATURES := cuda,flash-attn,cudnn,mkl
+        EXCLUDE_FEATURES := --exclude metal
+    endif
+endif
+
+# Feature flag for all build commands
+# Option A: Platform-specific features (safer)
+CARGO_FEATURES := --features $(PLATFORM_FEATURES)
+
+# Option B: All features with exclusions (more comprehensive, but riskier)
+CARGO_ALL_FEATURES := --all-features $(EXCLUDE_FEATURES)
+
+# Default to platform-specific for safety, but allow override
+CARGO_BUILD_FLAGS ?= $(CARGO_FEATURES)
+
+.PHONY: show-platform
+show-platform: ## Show detected platform and features
+	@echo "Detected OS: $(DETECTED_OS)"
+	@echo "Platform Features: $(PLATFORM_FEATURES)"
+	@echo "Excluded Features: $(EXCLUDE_FEATURES)"
+	@echo "Build Flags: $(CARGO_BUILD_FLAGS)"
+
+# ============================================================================
+# Code Coverage Targets
+# ============================================================================
 # Generate code coverage reports locally
 # Note: Coverage builds use local target/ directory and disable sccache
 
@@ -6,35 +56,42 @@ set-local-target:
 	@pwsh -Command "$$env:CARGO_TARGET_DIR=''; Write-Host 'Using local target directory'"
 
 test-coverage:
-	@echo "Generating code coverage report..."
-	@pwsh -Command "$$env:RUSTC_WRAPPER=''; Remove-Item Env:\CARGO_TARGET_DIR -EA SilentlyContinue; $$env:CARGO_INCREMENTAL='1'; cargo llvm-cov --workspace --all-features --html"
+	@echo "Generating code coverage report on $(DETECTED_OS) platform..."
+	@echo "Using features: $(PLATFORM_FEATURES)"
+	@pwsh -Command "$$env:RUSTC_WRAPPER=''; Remove-Item Env:\CARGO_TARGET_DIR -EA SilentlyContinue; $$env:CARGO_INCREMENTAL='1'; cargo llvm-cov --workspace $(CARGO_BUILD_FLAGS) --html"
 	@echo "Coverage report generated in target/llvm-cov/html/index.html"
 
 test-coverage-open:
-	@echo "Generating and opening code coverage report..."
-	@pwsh -Command "$$env:RUSTC_WRAPPER=''; Remove-Item Env:\CARGO_TARGET_DIR -EA SilentlyContinue; $$env:CARGO_INCREMENTAL='1'; cargo llvm-cov --workspace --all-features --open"
+	@echo "Generating and opening code coverage report on $(DETECTED_OS) platform..."
+	@echo "Using features: $(PLATFORM_FEATURES)"
+	@pwsh -Command "$$env:RUSTC_WRAPPER=''; Remove-Item Env:\CARGO_TARGET_DIR -EA SilentlyContinue; $$env:CARGO_INCREMENTAL='1'; cargo llvm-cov --workspace $(CARGO_BUILD_FLAGS) --open"
 
 test-coverage-lcov:
-	@echo "Generating LCOV coverage report..."
-	@pwsh -Command "$$env:RUSTC_WRAPPER=''; Remove-Item Env:\CARGO_TARGET_DIR -EA SilentlyContinue; $$env:CARGO_INCREMENTAL='1'; cargo llvm-cov --workspace --all-features --lcov --output-path lcov.info"
+	@echo "Generating LCOV coverage report on $(DETECTED_OS) platform..."
+	@echo "Using features: $(PLATFORM_FEATURES)"
+	@pwsh -Command "$$env:RUSTC_WRAPPER=''; Remove-Item Env:\CARGO_TARGET_DIR -EA SilentlyContinue; $$env:CARGO_INCREMENTAL='1'; cargo llvm-cov --workspace $(CARGO_BUILD_FLAGS) --lcov --output-path lcov.info"
 	@echo "LCOV report generated: lcov.info"
 
 test-coverage-json:
-	@echo "Generating JSON coverage report..."
-	@pwsh -Command "$$env:RUSTC_WRAPPER=''; Remove-Item Env:\CARGO_TARGET_DIR -EA SilentlyContinue; $$env:CARGO_INCREMENTAL='1'; cargo llvm-cov --workspace --all-features --json --output-path coverage.json"
+	@echo "Generating JSON coverage report on $(DETECTED_OS) platform..."
+	@echo "Using features: $(PLATFORM_FEATURES)"
+	@pwsh -Command "$$env:RUSTC_WRAPPER=''; Remove-Item Env:\CARGO_TARGET_DIR -EA SilentlyContinue; $$env:CARGO_INCREMENTAL='1'; cargo llvm-cov --workspace $(CARGO_BUILD_FLAGS) --json --output-path coverage.json"
 	@echo "JSON report generated: coverage.json"
 
 test-coverage-text:
-	@echo "Generating text coverage summary..."
-	@pwsh -Command "$$env:RUSTC_WRAPPER=''; Remove-Item Env:\CARGO_TARGET_DIR -EA SilentlyContinue; $$env:CARGO_INCREMENTAL='1'; cargo llvm-cov --workspace --all-features --summary-only"
+	@echo "Generating text coverage summary on $(DETECTED_OS) platform..."
+	@echo "Using features: $(PLATFORM_FEATURES)"
+	@pwsh -Command "$$env:RUSTC_WRAPPER=''; Remove-Item Env:\CARGO_TARGET_DIR -EA SilentlyContinue; $$env:CARGO_INCREMENTAL='1'; cargo llvm-cov --workspace $(CARGO_BUILD_FLAGS) --summary-only"
 
 test-coverage-ci:
-	@echo "Generating coverage for CI (LCOV format)..."
-	@pwsh -Command "$$env:RUSTC_WRAPPER=''; Remove-Item Env:\CARGO_TARGET_DIR -EA SilentlyContinue; $$env:CARGO_INCREMENTAL='1'; cargo llvm-cov --workspace --all-features --lcov --output-path lcov.info"
+	@echo "Generating coverage for CI (LCOV format) on $(DETECTED_OS) platform..."
+	@echo "Using features: $(PLATFORM_FEATURES)"
+	@pwsh -Command "$$env:RUSTC_WRAPPER=''; Remove-Item Env:\CARGO_TARGET_DIR -EA SilentlyContinue; $$env:CARGO_INCREMENTAL='1'; cargo llvm-cov --workspace $(CARGO_BUILD_FLAGS) --lcov --output-path lcov.info"
 
 test-coverage-fast:
-	@echo "Fast coverage (no pyo3 crates)..."
-	@pwsh -Command "$$env:RUSTC_WRAPPER=''; Remove-Item Env:\CARGO_TARGET_DIR -EA SilentlyContinue; $$env:CARGO_INCREMENTAL='1'; cargo llvm-cov -p mistralrs-core -p mistralrs-agent-tools -p mistralrs-quant -p mistralrs-vision -p mistralrs-mcp --all-features --html --open"
+	@echo "Fast coverage (no pyo3 crates) on $(DETECTED_OS) platform..."
+	@echo "Using features: $(PLATFORM_FEATURES)"
+	@pwsh -Command "$$env:RUSTC_WRAPPER=''; Remove-Item Env:\CARGO_TARGET_DIR -EA SilentlyContinue; $$env:CARGO_INCREMENTAL='1'; cargo llvm-cov -p mistralrs-core -p mistralrs-agent-tools -p mistralrs-quant -p mistralrs-vision -p mistralrs-mcp $(CARGO_BUILD_FLAGS) --html --open"
 
 install-coverage-tools:
 	@echo "Installing code coverage tools..."
@@ -48,23 +105,27 @@ install-coverage-tools:
 
 .PHONY: check
 check: ## Quick compilation check (no codegen)
-	@echo "Running quick check..."
-	@cargo check --workspace --all-targets --all-features
+	@echo "Running quick check on $(DETECTED_OS) platform..."
+	@echo "Using features: $(PLATFORM_FEATURES)"
+	@cargo check --workspace --all-targets $(CARGO_BUILD_FLAGS)
 
 .PHONY: build
 build: ## Build all workspace members
-	@echo "Building workspace..."
-	@cargo build --workspace --all-features
+	@echo "Building workspace on $(DETECTED_OS) platform..."
+	@echo "Using features: $(PLATFORM_FEATURES)"
+	@cargo build --workspace $(CARGO_BUILD_FLAGS)
 
 .PHONY: build-release
 build-release: ## Build release binaries
-	@echo "Building release binaries..."
-	@cargo build --workspace --all-features --release
+	@echo "Building release binaries on $(DETECTED_OS) platform..."
+	@echo "Using features: $(PLATFORM_FEATURES)"
+	@cargo build --workspace $(CARGO_BUILD_FLAGS) --release
 
 .PHONY: test
 test: ## Run all tests
-	@echo "Running tests..."
-	@cargo test --workspace --all-features
+	@echo "Running tests on $(DETECTED_OS) platform..."
+	@echo "Using features: $(PLATFORM_FEATURES)"
+	@cargo test --workspace $(CARGO_BUILD_FLAGS)
 
 .PHONY: fmt
 fmt: ## Format code with rustfmt
@@ -78,13 +139,15 @@ fmt-check: ## Check code formatting
 
 .PHONY: lint
 lint: ## Run clippy linter
-	@echo "Running clippy..."
-	@cargo clippy --workspace --all-targets --all-features --exclude mistralrs-pyo3 -- -D warnings || true
+	@echo "Running clippy on $(DETECTED_OS) platform..."
+	@echo "Using features: $(PLATFORM_FEATURES)"
+	@cargo clippy --workspace --all-targets $(CARGO_BUILD_FLAGS) --exclude mistralrs-pyo3 -- -D warnings || true
 
 .PHONY: lint-fix
 lint-fix: ## Auto-fix clippy warnings
-	@echo "Auto-fixing clippy issues..."
-	@cargo clippy --workspace --all-targets --all-features --exclude mistralrs-pyo3 --fix --allow-dirty --allow-staged || true
+	@echo "Auto-fixing clippy issues on $(DETECTED_OS) platform..."
+	@echo "Using features: $(PLATFORM_FEATURES)"
+	@cargo clippy --workspace --all-targets $(CARGO_BUILD_FLAGS) --exclude mistralrs-pyo3 --fix --allow-dirty --allow-staged || true
 
 .PHONY: clean
 clean: ## Clean build artifacts

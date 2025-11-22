@@ -194,7 +194,10 @@ impl AutoLoader {
     }
 
     fn ensure_loader(&self, config: &str) -> Result<()> {
-        let mut guard = self.loader.lock().unwrap();
+        let mut guard = self
+            .loader
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         if guard.is_some() {
             return Ok(());
         }

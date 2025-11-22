@@ -667,9 +667,15 @@ impl XLoraModel {
                     .unwrap()
                     .merge_weights()?;
                 for expert in layer.block_sparse_moe.experts.iter_mut() {
-                    Arc::get_mut(&mut expert.w1).unwrap().merge_weights()?;
-                    Arc::get_mut(&mut expert.w2).unwrap().merge_weights()?;
-                    Arc::get_mut(&mut expert.w3).unwrap().merge_weights()?;
+                    Arc::get_mut(&mut expert.w1)
+                        .expect("Multiple references to expert w1 layer")
+                        .merge_weights()?;
+                    Arc::get_mut(&mut expert.w2)
+                        .expect("Multiple references to expert w2 layer")
+                        .merge_weights()?;
+                    Arc::get_mut(&mut expert.w3)
+                        .expect("Multiple references to expert w3 layer")
+                        .merge_weights()?;
                 }
             }
         }
@@ -904,14 +910,29 @@ impl IsqModel for XLoraModel {
             ));
             tensors.push((
                 Arc::get_mut(&mut layer.block_sparse_moe.gate)
-                    .unwrap()
+                    .expect("Multiple references to MoE gate layer")
                     .quant_inner(),
                 Some(i),
             ));
             for expert in &mut layer.block_sparse_moe.experts {
-                tensors.push((Arc::get_mut(&mut expert.w1).unwrap().quant_inner(), Some(i)));
-                tensors.push((Arc::get_mut(&mut expert.w2).unwrap().quant_inner(), Some(i)));
-                tensors.push((Arc::get_mut(&mut expert.w3).unwrap().quant_inner(), Some(i)));
+                tensors.push((
+                    Arc::get_mut(&mut expert.w1)
+                        .expect("Multiple references to expert w1 layer")
+                        .quant_inner(),
+                    Some(i),
+                ));
+                tensors.push((
+                    Arc::get_mut(&mut expert.w2)
+                        .expect("Multiple references to expert w2 layer")
+                        .quant_inner(),
+                    Some(i),
+                ));
+                tensors.push((
+                    Arc::get_mut(&mut expert.w3)
+                        .expect("Multiple references to expert w3 layer")
+                        .quant_inner(),
+                    Some(i),
+                ));
             }
         }
         (tensors, &*self.mapper)

@@ -719,31 +719,45 @@ impl IsqModel for XLoraLlama {
         ));
         for (i, layer) in self.blocks.iter_mut().enumerate() {
             tensors.push((
-                Arc::get_mut(&mut layer.attn.q_proj).unwrap().quant_inner(),
+                Arc::get_mut(&mut layer.attn.q_proj)
+                    .expect("Multiple references to q_proj layer")
+                    .quant_inner(),
                 Some(i),
             ));
             tensors.push((
-                Arc::get_mut(&mut layer.attn.k_proj).unwrap().quant_inner(),
+                Arc::get_mut(&mut layer.attn.k_proj)
+                    .expect("Multiple references to k_proj layer")
+                    .quant_inner(),
                 Some(i),
             ));
             tensors.push((
-                Arc::get_mut(&mut layer.attn.v_proj).unwrap().quant_inner(),
+                Arc::get_mut(&mut layer.attn.v_proj)
+                    .expect("Multiple references to v_proj layer")
+                    .quant_inner(),
                 Some(i),
             ));
             tensors.push((
-                Arc::get_mut(&mut layer.attn.o_proj).unwrap().quant_inner(),
+                Arc::get_mut(&mut layer.attn.o_proj)
+                    .expect("Multiple references to o_proj layer")
+                    .quant_inner(),
                 Some(i),
             ));
             tensors.push((
-                Arc::get_mut(&mut layer.mlp.c_fc1).unwrap().quant_inner(),
+                Arc::get_mut(&mut layer.mlp.c_fc1)
+                    .expect("Multiple references to c_fc1 layer")
+                    .quant_inner(),
                 Some(i),
             ));
             tensors.push((
-                Arc::get_mut(&mut layer.mlp.c_fc2).unwrap().quant_inner(),
+                Arc::get_mut(&mut layer.mlp.c_fc2)
+                    .expect("Multiple references to c_fc2 layer")
+                    .quant_inner(),
                 Some(i),
             ));
             tensors.push((
-                Arc::get_mut(&mut layer.mlp.c_proj).unwrap().quant_inner(),
+                Arc::get_mut(&mut layer.mlp.c_proj)
+                    .expect("Multiple references to c_proj layer")
+                    .quant_inner(),
                 Some(i),
             ));
         }

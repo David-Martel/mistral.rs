@@ -431,7 +431,11 @@ impl Pipeline for SpeculativePipeline {
                         .as_ref()
                         .map(|(k, _)| k.dims()[2])
                         .unwrap_or(0),
-                    EitherCache::Normal(normal) => normal.lock().unwrap().0[0].current_seq_len(),
+                    EitherCache::Normal(normal) => normal
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner())
+                        .0[0]
+                        .current_seq_len(),
                 };
 
                 // ========= Run the model ============
@@ -494,7 +498,11 @@ impl Pipeline for SpeculativePipeline {
                         }
                     }
                     EitherCache::Normal(normal) => {
-                        for cache in &mut *normal.lock().unwrap().0 {
+                        for cache in &mut *normal
+                            .lock()
+                            .unwrap_or_else(|poisoned| poisoned.into_inner())
+                            .0
+                        {
                             cache
                                 .set_len(cache.current_seq_len() - n_not_accepted)
                                 .map_err(|_| candle_core::Error::msg("KV cache set_len failed."))?;
@@ -522,7 +530,11 @@ impl Pipeline for SpeculativePipeline {
                         }
                     }
                     EitherCache::Normal(normal) => {
-                        for cache in &mut *normal.lock().unwrap().0 {
+                        for cache in &mut *normal
+                            .lock()
+                            .unwrap_or_else(|poisoned| poisoned.into_inner())
+                            .0
+                        {
                             cache
                                 .set_len(cache.current_seq_len() - n_not_accepted)
                                 .map_err(|_| candle_core::Error::msg("KV cache set_len failed."))?;

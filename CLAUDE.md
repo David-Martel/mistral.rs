@@ -394,6 +394,202 @@ MISTRALRS_DEBUG=1 ./target/release/mistralrs-server -i plain -m model-id
 - `launch-*.ps1` - Quick model launch scripts
 - `start-mistralrs.ps1` - General-purpose server launcher
 
+## Upstream Integration and Repository Maintenance
+
+**Status**: Phase 1 (Build Fixes) - In Progress (Validation Running)
+**Last Updated**: 2025-11-22
+
+### Overview
+
+This repository is a fork of `EricLBuehler/mistral.rs` with local customizations. The integration project aims to:
+
+1. Fix build issues preventing compilation on Windows with CUDA
+2. Integrate upstream improvements while preserving local customizations
+3. Address code quality issues identified by automated reviewers
+4. Close duplicate PRs and consolidate improvements
+5. Ensure comprehensive testing before deployment
+
+### 9-Phase Integration Plan
+
+#### PHASE 1: Immediate Build Fix ✅ NEARLY COMPLETE
+
+**Objective**: Get mistral.rs compiling on Windows with CUDA support
+
+**Issues Fixed**:
+1. ✅ **Platform Detection** - Makefile now detects OS and selects appropriate features
+   - Windows: `cuda,flash-attn,cudnn,mkl` (excludes macOS `metal`)
+   - macOS: `metal,accelerate` (excludes CUDA)
+   - Linux: `cuda,flash-attn,cudnn,mkl` (excludes `metal`)
+   - **Fixed**: `objc_exception` build error caused by `--all-features` pulling macOS dependencies on Windows
+
+2. ✅ **NVCC Compiler Path** - Configured NVCC_CCBIN for CUDA kernel compilation
+   - Added to Makefile (line 15): `export NVCC_CCBIN := C:\Program Files\...\cl.exe`
+   - Added to `.cargo/config.toml` (line 36): `NVCC_CCBIN = "C:\\Program Files\\...\\cl.exe"`
+   - **Fixed**: "Failed to preprocess host compiler properties" error
+
+3. ✅ **Updated Candle Dependency** - Synchronized with upstream version
+   - Changed from `rev = "5e6c385"` to `rev = "175926c9"` (Cargo.toml lines 49-52)
+   - Brings CUDA 12.9/13.0 support and RTX 50-series (sm_89) compatibility
+   - Ran `cargo update` to resolve dependency conflicts (309 packages updated)
+
+**Current Status**: Build running with all fixes applied (213/1052 packages, 20% complete, zero errors)
+
+#### PHASE 2: Upstream Integration Analysis (PENDING)
+
+**Objective**: Analyze 30+ upstream commits and create merge strategy
+
+**Tasks**:
+- Fetch and analyze upstream commits since last sync
+- Categorize by priority: Critical fixes, Features, Refactorings, Documentation
+- Identify conflicts with local customizations
+- Document which commits to cherry-pick vs. merge
+- Create `upstream-analysis.md` with findings
+
+**Agent Assignment**: rust-pro, architect-reviewer
+
+#### PHASE 3: Cherry-Pick Upstream Improvements (PENDING)
+
+**Objective**: Integrate Priority 1 upstream commits while preserving customizations
+
+**Tasks**:
+- Cherry-pick high-priority commits
+- Resolve merge conflicts manually
+- Test after each integration
+- Document preserved customizations
+
+**Agent Assignment**: rust-pro, debugger
+
+#### PHASE 4: Code Quality - Gemini Review Comments (PENDING)
+
+**Objective**: Address automated code review feedback
+
+**Tasks**:
+- Fix missed `.unwrap()` → `.expect()` conversions (3 files identified)
+- Implement poison lock recovery (4 files identified)
+- Add context to error messages
+- Test error handling paths
+
+**Files Affected**:
+- `mistralrs-core/src/lib.rs`
+- `mistralrs-core/src/pipeline/auto.rs`
+- `mistralrs-core/src/pipeline/speculative.rs`
+- `mistralrs-core/src/pipeline/vision.rs`
+- `mistralrs-core/src/sampler.rs`
+- `mistralrs-core/src/vision_models/minicpmo/resampler.rs`
+- `mistralrs-core/src/xlora_models/*.rs` (7 files)
+
+**Agent Assignment**: code-reviewer, rust-pro
+
+#### PHASE 5: Refactor Error Handling (PENDING)
+
+**Objective**: Improve error propagation and context
+
+**Complexity**: Medium
+**Estimated Impact**: 50+ files
+
+**Tasks**:
+- Convert `anyhow::Error` to typed errors where appropriate
+- Add error context using `.context()` or `.with_context()`
+- Ensure all errors are actionable
+- Update error handling documentation
+
+**Agent Assignment**: rust-pro, architect-reviewer
+
+#### PHASE 6: Fix Critical Bugs (PENDING)
+
+**Objective**: Resolve known bugs identified in code review
+
+**Critical Bug**: Conformer bucketing overflow
+- **Location**: `mistralrs-core/src/vision_models/conformer/pos_embed.rs:166`
+- **Issue**: Potential integer overflow in bucket calculation
+- **Impact**: Vision models using Conformer architecture
+- **Fix**: Add bounds checking or use saturating arithmetic
+
+**Agent Assignment**: debugger, rust-pro
+
+#### PHASE 7: Pull Request Management (PENDING)
+
+**Objective**: Consolidate duplicate PRs and update with all fixes
+
+**Tasks**:
+- Close PR #3 (duplicate - fixes compilation)
+- Close PR #4 (duplicate - fixes compilation)
+- Update PR #2 (comprehensive agent tools/docs) with all Phase 1-6 fixes
+- Ensure PR #2 is ready for upstream merge consideration
+
+**Open PRs**:
+- PR #2: Agent tools and documentation (comprehensive, keep and update)
+- PR #3: Compilation fix (duplicate, close)
+- PR #4: Compilation fix (duplicate, close)
+
+#### PHASE 8: Comprehensive Validation (PENDING)
+
+**Objective**: Ensure everything works before finalizing
+
+**Tasks**:
+- Full build test with all features
+- Run complete test suite
+- Test MCP integration with 9 servers
+- Validate TUI, CLI, HTTP API modes
+- Performance regression check
+- Document any issues found
+
+**Agent Assignment**: test-runner, debugger
+
+#### PHASE 9: Documentation and Finalization (PENDING)
+
+**Objective**: Document all work and create completion report
+
+**Tasks**:
+- Update CLAUDE.md with integration findings
+- Update TODO.md with completion status
+- Create `UPSTREAM_INTEGRATION_COMPLETE.md` with:
+  - Summary of all fixes
+  - Upstream commits integrated
+  - Local customizations preserved
+  - Known issues and workarounds
+  - Performance impact
+  - Future maintenance recommendations
+
+### Key Findings (Phase 1)
+
+**Build System Issues**:
+1. **Platform-Agnostic Feature Selection** - Original Makefile used `--all-features` which pulled platform-specific dependencies (like macOS `metal` on Windows)
+2. **Missing NVCC Configuration** - CUDA kernel compilation failed because NVCC couldn't locate Visual Studio compiler
+3. **Outdated Dependencies** - Candle framework was 30+ commits behind upstream, missing CUDA 12.9/13.0 support
+
+**Solutions Implemented**:
+1. **Smart Platform Detection** - Makefile now auto-detects OS and selects appropriate feature set
+2. **Explicit NVCC Path** - Both Makefile and Cargo config now export NVCC_CCBIN with full path to cl.exe
+3. **Dependency Sync** - Updated candle to latest upstream revision, ran cargo update to resolve conflicts
+
+**Build Metrics**:
+- Initial state: Build failed immediately with `objc_exception` linking error
+- After platform fix: Build progressed to NVCC failure
+- After NVCC fix: Build progressed further but still failed silently
+- After candle update: Build running successfully (1052 packages total, zero errors so far)
+
+### Repository Structure
+
+**Remotes**:
+- `origin`: `david-t-martel/mistral.rs` (personal fork)
+- `upstream`: `EricLBuehler/mistral.rs` (original repository)
+
+**Current Branch**: `chore/todo-warning`
+
+**Modified Files** (Phase 1):
+- `Makefile` - Platform detection and NVCC configuration
+- `.cargo/config.toml` - NVCC environment variable
+- `Cargo.toml` - Updated candle dependency to upstream version
+- 13 source files with Gemini review comments to address (Phase 4)
+
+### Next Steps
+
+1. **Wait for Phase 1 validation** - Current build test must complete successfully
+2. **Begin Phase 2** - Use rust-pro agent to analyze upstream commits
+3. **Create upstream-analysis.md** - Document integration strategy
+4. **Proceed with remaining phases** - Following the approved 9-phase plan
+
 ## Rust API Usage Patterns
 
 The `mistralrs/` crate provides a high-level Rust API. See `mistralrs/examples/` for complete examples.

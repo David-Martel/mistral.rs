@@ -836,12 +836,14 @@ impl IsqModel for Model {
                 Some(i),
             ));
             tensors.push((
-                Arc::get_mut(&mut layer.mlp.up_proj).unwrap().quant_inner(),
+                Arc::get_mut(&mut layer.mlp.up_proj)
+                    .expect("Multiple references to up_proj layer")
+                    .quant_inner(),
                 Some(i),
             ));
             tensors.push((
                 Arc::get_mut(&mut layer.mlp.down_proj)
-                    .unwrap()
+                    .expect("Multiple references to down_proj layer")
                     .quant_inner(),
                 Some(i),
             ));

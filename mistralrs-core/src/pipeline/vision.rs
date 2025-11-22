@@ -661,7 +661,11 @@ impl Loader for VisionLoader {
                         }
                     }
                     EitherCache::Normal(normal) => {
-                        for layer in &mut *normal.lock().unwrap().0 {
+                        for layer in &mut *normal
+                            .lock()
+                            .unwrap_or_else(|poisoned| poisoned.into_inner())
+                            .0
+                        {
                             layer.reset();
                         }
                     }
@@ -746,7 +750,11 @@ impl Loader for VisionLoader {
         let llg_factory = build_llg_factory(tokenizer.clone())?;
         let num_hidden_layers = match model.cache() {
             EitherCache::Full(full) => full.lock().len(),
-            EitherCache::Normal(normal) => normal.lock().unwrap().0.len(),
+            EitherCache::Normal(normal) => normal
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .0
+                .len(),
         };
         let eos = calculate_eos_tokens(&chat_template, gen_conf, &tokenizer);
         let sliding_window = model.config().sliding_window;

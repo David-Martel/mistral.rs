@@ -796,7 +796,10 @@ impl MistralRs {
     }
 
     pub fn next_request_id(&self) -> usize {
-        let l = self.next_request_id.lock().unwrap();
+        let l = self
+            .next_request_id
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let last = &mut *l.borrow_mut();
         let last_v = *last;
         *last += 1;

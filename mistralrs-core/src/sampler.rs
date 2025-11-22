@@ -439,7 +439,10 @@ impl Sampler {
         let log_probs = probs.log()?;
         // Generate cached Gumbel noise (-log(-log(u))) once.
         let gumbel = {
-            let mut guard = self.gumbel_cache.lock().unwrap();
+            let mut guard = self
+                .gumbel_cache
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
             if guard.is_none() {
                 let uniform = Tensor::rand(0f32, 1f32, log_probs.shape(), log_probs.device())?;
                 let noise = uniform
@@ -613,7 +616,9 @@ impl Sampler {
     ) -> Result<Logprobs> {
         let distr = WeightedIndex::new(&*probs).map_err(Error::wrap)?;
 
-        let mut mut_ref_rng = &mut *rng.lock().expect("could not lock rng mutex");
+        let mut mut_ref_rng = &mut *rng
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let next_token = distr.sample(&mut mut_ref_rng); // "Find the first item which has a weight *higher* than the chosen weight."
         let logprob = probs[next_token].log(10.0);
 

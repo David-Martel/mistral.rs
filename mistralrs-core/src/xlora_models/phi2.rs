@@ -507,8 +507,12 @@ impl Model {
                     .expect("Multiple references to v_proj")
                     .merge_weights()?;
 
-                Arc::get_mut(&mut layer.mlp.fc1).unwrap().merge_weights()?;
-                Arc::get_mut(&mut layer.mlp.fc2).unwrap().merge_weights()?;
+                Arc::get_mut(&mut layer.mlp.fc1)
+                    .expect("Multiple references to fc1 layer")
+                    .merge_weights()?;
+                Arc::get_mut(&mut layer.mlp.fc2)
+                    .expect("Multiple references to fc2 layer")
+                    .merge_weights()?;
             }
         }
         let lm_head = linear(
@@ -728,16 +732,20 @@ impl IsqModel for Model {
             ));
             tensors.push((
                 Arc::get_mut(&mut layer.self_attn.dense)
-                    .unwrap()
+                    .expect("Multiple references to v_proj layer")
                     .quant_inner(),
                 Some(i),
             ));
             tensors.push((
-                Arc::get_mut(&mut layer.mlp.fc1).unwrap().quant_inner(),
+                Arc::get_mut(&mut layer.mlp.fc1)
+                    .expect("Multiple references to fc1 layer")
+                    .quant_inner(),
                 Some(i),
             ));
             tensors.push((
-                Arc::get_mut(&mut layer.mlp.fc2).unwrap().quant_inner(),
+                Arc::get_mut(&mut layer.mlp.fc2)
+                    .expect("Multiple references to fc2 layer")
+                    .quant_inner(),
                 Some(i),
             ));
         }
