@@ -275,7 +275,16 @@ impl CacheManagerMixin for SpeculativePipeline {
         }
     }
     fn cache(&self) -> &EitherCache {
-        unreachable!()
+        // SAFETY: SpeculativePipeline manages target and draft caches separately via
+        // NormalCacheManager in clone_in_cache/clone_out_cache/set_none_cache.
+        // This method should never be called as speculative decoding manually coordinates
+        // both model caches. If called, it indicates a programming error in the pipeline
+        // orchestration logic.
+        unreachable!(
+            "SpeculativePipeline::cache() should never be called. \
+             Speculative decoding manages target and draft caches independently. \
+             Use the specific cache management methods instead."
+        )
     }
     fn do_preallocated_cache(&self) -> bool {
         // KV cache size is not the same (necessarily)
@@ -317,7 +326,15 @@ impl Pipeline for SpeculativePipeline {
         _inputs: Box<dyn Any>,
         _return_raw_logits: bool,
     ) -> Result<ForwardInputsResult> {
-        unreachable!()
+        // SAFETY: SpeculativePipeline uses a custom step() implementation that orchestrates
+        // forward passes for both draft and target models. The generic forward_inputs() is
+        // never called for speculative decoding. If this is reached, it indicates incorrect
+        // pipeline method invocation - use step() instead.
+        unreachable!(
+            "SpeculativePipeline::forward_inputs() should never be called. \
+             Speculative decoding uses the step() method which coordinates both \
+             draft and target model forward passes. This is a programming error."
+        )
     }
     async fn sample_causal_gen(
         &self,
@@ -327,7 +344,14 @@ impl Pipeline for SpeculativePipeline {
         _disable_eos_stop: bool,
         _rng: Arc<std::sync::Mutex<Isaac64Rng>>,
     ) -> Result<()> {
-        unreachable!()
+        // SAFETY: SpeculativePipeline implements custom sampling logic within step() that
+        // handles rejection sampling for speculative decoding. The generic sample_causal_gen()
+        // is never used. If reached, this indicates incorrect sampling path in pipeline logic.
+        unreachable!(
+            "SpeculativePipeline::sample_causal_gen() should never be called. \
+             Speculative decoding handles sampling internally in step() using \
+             sample_target_sequence_speculative(). This is a programming error."
+        )
     }
     async fn step(
         &mut self,
@@ -353,7 +377,11 @@ impl Pipeline for SpeculativePipeline {
                         true,
                         load_preallocated_cache,
                     ),
-                    _ => unreachable!("Unreachable PRE cache op."),
+                    _ => unreachable!(
+                        "Invalid PRE cache operation for speculative pipeline. \
+                         Only In, Nothing, and Reset operations are supported in pre_op. \
+                         This indicates a bug in cache instruction generation."
+                    ),
                 }
 
                 let start = Instant::now();
@@ -384,7 +412,7 @@ impl Pipeline for SpeculativePipeline {
                             None, // TODO @gemini: get block tables/handle it
                             get_mut_arcmutex!(self.draft).device_mapper(),
                         )
-                        .unwrap()
+                        .expect("Failed to process inputs during speculative decoding")
                         .inputs;
                     let logits = get_mut_arcmutex!(self.draft).forward_inputs(inputs, false)?;
                     #[allow(irrefutable_let_patterns)]
@@ -414,7 +442,10 @@ impl Pipeline for SpeculativePipeline {
                 let mut draft_prefill_tokens = if is_prompt {
                     seq.get_toks().to_vec()
                 } else {
-                    vec![*seq.get_toks().last().unwrap()]
+                    vec![*seq
+                        .get_toks()
+                        .last()
+                        .expect("Sequence must have at least one token for speculative decoding")]
                 };
                 for (i, sample) in draft_samples.iter().enumerate() {
                     if i == draft_samples.len() - 1 {
@@ -518,7 +549,14 @@ impl Pipeline for SpeculativePipeline {
                             }
                         }
                         EitherCache::Normal(_) => {
-                            unreachable!()
+                            // SAFETY: X-LoRA models always use Full cache, never Normal cache.
+                            // The is_xlora check above ensures this path is only taken for X-LoRA models.
+                            // If we reach here with Normal cache, it's a configuration inconsistency.
+                            unreachable!(
+                                "X-LoRA draft model has Normal cache instead of Full cache. \
+                                 X-LoRA models require Full cache for adapter weights. \
+                                 This indicates a model configuration error."
+                            )
                         }
                     }
                 }
@@ -550,7 +588,14 @@ impl Pipeline for SpeculativePipeline {
                             }
                         }
                         EitherCache::Normal(_) => {
-                            unreachable!()
+                            // SAFETY: X-LoRA models always use Full cache, never Normal cache.
+                            // The is_xlora check above ensures this path is only taken for X-LoRA models.
+                            // If we reach here with Normal cache, it's a configuration inconsistency.
+                            unreachable!(
+                                "X-LoRA target model has Normal cache instead of Full cache. \
+                                 X-LoRA models require Full cache for adapter weights. \
+                                 This indicates a model configuration error."
+                            )
                         }
                     }
                 }
@@ -609,7 +654,11 @@ impl Pipeline for SpeculativePipeline {
                         true,
                         load_preallocated_cache,
                     ),
-                    _ => unreachable!("Unreachable pre cache op."),
+                    _ => unreachable!(
+                        "Invalid POST cache operation for speculative pipeline. \
+                         Only Out, Nothing, and Reset operations are supported in post_op. \
+                         This indicates a bug in cache instruction generation."
+                    ),
                 }
 
                 // Done! We have:
@@ -628,7 +677,18 @@ impl Pipeline for SpeculativePipeline {
                 blocks_to_copy: _,
                 blocks_to_swap_in: _,
                 blocks_to_swap_out: _,
-            } => unreachable!(),
+            } => {
+                // SAFETY: PagedAttention is explicitly disabled for speculative decoding in
+                // SpeculativeLoader::load_model_from_hf() (lines 55-62) and load_model_from_path()
+                // (lines 102-109). A warning is logged and paged_attn_config is set to None.
+                // If we reach this code path, it means PagedAttention was somehow enabled despite
+                // the guards in the loader.
+                unreachable!(
+                    "Speculative decoding does not support PagedAttention. \
+                     This should have been prevented by SpeculativeLoader. \
+                     This indicates a critical bug in pipeline initialization."
+                )
+            }
         }
     }
     fn category(&self) -> ModelCategory {

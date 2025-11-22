@@ -453,7 +453,10 @@ impl Sampler {
                     .neg()?; // -ln(-ln(u))
                 *guard = Some(noise);
             }
-            guard.as_ref().unwrap().clone()
+            guard
+                .as_ref()
+                .expect("Gumbel noise must exist after initialization in Sampler::sample_fast()")
+                .clone()
         };
 
         let gumbel_logits = (&log_probs + &gumbel)?;
@@ -629,7 +632,7 @@ impl Sampler {
         let bytes = if let Some(tokenizer) = &self.tokenizer {
             Some(
                 tokenizer
-                    .decode(&[next_token.try_into().unwrap()], false)
+                    .decode(&[next_token.try_into().expect("Failed to convert token ID from usize to u32 during multinomial sampling")], false)
                     .map_err(|x| Error::Msg(x.to_string()))?,
             )
         } else {
@@ -771,7 +774,12 @@ impl Sampler {
                 .par_iter()
                 .enumerate()
                 .take(context.len() - 1)
-                .filter(|(_i, x)| *context.last().unwrap() == **x)
+                .filter(|(_i, x)| {
+                    *context
+                        .last()
+                        .expect("DRY penalty context must have at least one token for comparison")
+                        == **x
+                })
                 .map(|(i, _)| i)
                 .collect::<Vec<_>>();
 

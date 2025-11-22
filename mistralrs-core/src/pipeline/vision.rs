@@ -568,14 +568,28 @@ impl Loader for VisionLoader {
         let preprocessor_config: PreProcessorConfig = match paths.get_preprocessor_config().as_ref()
         {
             Some(preprocessor_config) => {
-                serde_json::from_str(&fs::read_to_string(preprocessor_config).expect(&format!("Failed to read preprocessor config file: {:?}", preprocessor_config))).expect(&format!("Failed to parse preprocessor config JSON from {:?}", preprocessor_config))
+                serde_json::from_str(&fs::read_to_string(preprocessor_config).expect(&format!(
+                    "Failed to read preprocessor config file: {:?}",
+                    preprocessor_config
+                )))
+                .expect(&format!(
+                    "Failed to parse preprocessor config JSON from {:?}",
+                    preprocessor_config
+                ))
             }
             None => PreProcessorConfig::default(),
         };
-        let processor_config: Option<ProcessorConfig> = paths
-            .get_processor_config()
-            .as_ref()
-            .map(|f| serde_json::from_str(&fs::read_to_string(f).expect(&format!("Failed to read processor config file: {:?}", f))).expect(&format!("Failed to parse processor config JSON from {:?}", f)));
+        let processor_config: Option<ProcessorConfig> =
+            paths.get_processor_config().as_ref().map(|f| {
+                serde_json::from_str(
+                    &fs::read_to_string(f)
+                        .expect(&format!("Failed to read processor config file: {:?}", f)),
+                )
+                .expect(&format!(
+                    "Failed to parse processor config JSON from {:?}",
+                    f
+                ))
+            });
 
         let processor = self.inner.get_processor(
             &config,
@@ -589,9 +603,16 @@ impl Loader for VisionLoader {
             Some(processor.get_special_tokens()),
         )?;
 
-        let gen_conf: Option<GenerationConfig> = paths
-            .get_gen_conf_filename()
-            .map(|f| serde_json::from_str(&fs::read_to_string(f).expect(&format!("Failed to read generation config file: {:?}", f))).expect(&format!("Failed to parse generation config JSON from {:?}", f)));
+        let gen_conf: Option<GenerationConfig> = paths.get_gen_conf_filename().map(|f| {
+            serde_json::from_str(
+                &fs::read_to_string(f)
+                    .expect(&format!("Failed to read generation config file: {:?}", f)),
+            )
+            .expect(&format!(
+                "Failed to parse generation config JSON from {:?}",
+                f
+            ))
+        });
         let chat_template_explicit = paths
             .get_chat_template_explicit()
             .as_ref()
@@ -714,7 +735,11 @@ impl Loader for VisionLoader {
                 },
                 Arc::new(MultiProgress::new()),
             )?;
-        } else if let Some(from_uqff) = &*self.from_uqff.read().expect("Failed to acquire read lock on UQFF paths") {
+        } else if let Some(from_uqff) = &*self
+            .from_uqff
+            .read()
+            .expect("Failed to acquire read lock on UQFF paths")
+        {
             model.load_from_artifacts(
                 device.clone(),
                 self.config.topology.as_ref(),

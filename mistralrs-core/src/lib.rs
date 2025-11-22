@@ -402,7 +402,12 @@ impl MistralRs {
 
         let category = pipeline.try_lock().expect("Failed to acquire lock on pipeline to get category during engine instance creation").category();
         let kind = pipeline.try_lock().expect("Failed to acquire lock on pipeline to get model kind during engine instance creation").get_metadata().kind.clone();
-        let device = pipeline.try_lock().expect("Failed to acquire lock on pipeline to get device during engine instance creation").device();
+        let device = pipeline
+            .try_lock()
+            .expect(
+                "Failed to acquire lock on pipeline to get device during engine instance creation",
+            )
+            .device();
         let modalities = pipeline
             .try_lock()
             .expect("Failed to acquire lock on pipeline to get modalities during engine instance creation")

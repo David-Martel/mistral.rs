@@ -206,19 +206,19 @@ impl AutoLoader {
                 let builder = self
                     .normal_builder
                     .lock()
-                    .unwrap()
+                    .expect("Failed to acquire lock on normal_builder during auto-detection model loading")
                     .take()
-                    .expect("builder taken");
-                let loader = builder.build(Some(tp)).expect("build normal");
+                    .expect("Normal builder must be available before loading. Internal state error: builder was already taken.");
+                let loader = builder.build(Some(tp)).expect("Failed to build normal loader after auto-detection. This indicates an internal configuration error.");
                 *guard = Some(loader);
             }
             Detected::Vision(tp) => {
                 let builder = self
                     .vision_builder
                     .lock()
-                    .unwrap()
+                    .expect("Failed to acquire lock on vision_builder during auto-detection model loading")
                     .take()
-                    .expect("builder taken");
+                    .expect("Vision builder must be available before loading. Internal state error: builder was already taken.");
                 let loader = builder.build(Some(tp));
                 *guard = Some(loader);
             }
@@ -244,9 +244,9 @@ impl Loader for AutoLoader {
         self.ensure_loader(&config)?;
         self.loader
             .lock()
-            .unwrap()
+            .expect("Failed to acquire lock on loader during load_model_from_hf operation")
             .as_ref()
-            .unwrap()
+            .expect("Loader must be initialized after ensure_loader() call. Internal state error: loader is None.")
             .load_model_from_hf(
                 revision,
                 token_source,
@@ -274,9 +274,9 @@ impl Loader for AutoLoader {
         self.ensure_loader(&config)?;
         self.loader
             .lock()
-            .unwrap()
+            .expect("Failed to acquire lock on loader during load_model_from_path operation")
             .as_ref()
-            .unwrap()
+            .expect("Loader must be initialized after ensure_loader() call. Internal state error: loader is None.")
             .load_model_from_path(
                 paths,
                 dtype,
@@ -295,7 +295,7 @@ impl Loader for AutoLoader {
     fn get_kind(&self) -> ModelKind {
         self.loader
             .lock()
-            .unwrap()
+            .expect("Failed to acquire lock on loader during get_kind operation")
             .as_ref()
             .map(|l| l.get_kind())
             .unwrap_or(ModelKind::Normal)
