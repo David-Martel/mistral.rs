@@ -70,6 +70,110 @@ Please submit requests for new models [here](https://github.com/EricLBuehler/mis
 
 <br>
 
+## 🎯 Local Fork Enhancements
+
+This fork includes additional features and improvements not yet in the upstream repository:
+
+### Integrated Upstream Improvements (Phase 3A Complete)
+
+**11/14 Priority 1 commits integrated** from upstream with **-2,600 lines** of code cleanup:
+
+- ✅ **CUDA 13.0 Support** - Full CUDA 13.0 and RTX 50-series (sm_89) compatibility
+- ✅ **Qwen 2.5 / 2.5 VL improvements** - Enhanced flash attention and vision fixes
+- ✅ **Gemma 3/3n multi-device mapping** - Q/K/V split across GPUs
+- ✅ **CPU flash attention** - Mask handling and dtype checks
+- ✅ **Conv layer refactor** - Major code cleanup and performance improvements
+- ✅ **Chat template tool calling** - Enhanced tool integration
+- ✅ **CUDA clippy compliance** - Code quality improvements
+
+See [PHASE_3A_COMPLETE.md](PHASE_3A_COMPLETE.md) for detailed integration report.
+
+### Enhanced TUI (Terminal User Interface)
+
+**Full feature-set builds** with comprehensive testing and standardization:
+
+- **Terminal mode** - Default ratatui/crossterm interface
+- **GPU rendering** - Optional wgpu support for advanced graphics
+- **Agent tools** - Integrated agent command system
+- **Model inventory** - 5 pre-configured test models (0.94GB to 8.5GB)
+- **Launch scripts** - Windows PowerShell quick-start scripts
+
+**Quick Start with TUI:**
+
+```bash
+# Full feature build (recommended)
+cargo build --release --package mistralrs-tui --features "terminal,gpu,tui-agent"
+
+# Launch with smallest model (fastest testing)
+./target/release/mistralrs-tui gguf -m C:\codedev\llm\.models\qwen2.5-1.5b-it-gguf\Qwen2.5-1.5B-Instruct-Q4_K_M.gguf
+
+# Or use Windows launch script
+.\scripts\launch\launch-qwen-fast.ps1
+```
+
+**Available Test Models** (from `models.json`):
+
+| Model               | Size    | Use Case          | VRAM  | Speed        |
+| ------------------- | ------- | ----------------- | ----- | ------------ |
+| Qwen2.5-1.5B-Q4     | 0.94 GB | Quick responses   | ~2GB  | 80-100 tok/s |
+| Qwen2.5-Coder-3B-Q4 | 1.93 GB | Code analysis     | ~3GB  | 60-80 tok/s  |
+| Gemma 2 2B-Q4       | 1.67 GB | General purpose   | ~3GB  | 70-90 tok/s  |
+| Qwen2.5-7B-Q4       | 4.37 GB | Complex reasoning | ~6GB  | 40-60 tok/s  |
+| Gemma 3 4B-hf       | 8.50 GB | Full precision    | ~10GB | 30-50 tok/s  |
+
+**TUI Feature Combinations:**
+
+```bash
+# Minimal (testing, CI/CD)
+cargo build --release --package mistralrs-tui
+
+# Standard (general use)
+cargo build --release --package mistralrs-tui --features "terminal,gpu"
+
+# Agent mode (development, automation)
+cargo build --release --package mistralrs-tui --features "terminal,tui-agent"
+
+# Full (production - all features)
+cargo build --release --package mistralrs-tui --features "terminal,gpu,tui-agent"
+```
+
+See [TUI_RELEASE_STANDARD.md](TUI_RELEASE_STANDARD.md) for complete release process and testing matrix.
+
+### Feature Branches
+
+**Ready for implementation:**
+
+- `feature/embedding-support` - EmbeddingGemma & Qwen3 Embedding models ([docs](FEATURE_EMBEDDING_SUPPORT.md))
+- `feature/qwen3-vl` - Qwen3 Vision-Language model support ([docs](FEATURE_QWEN3_VL.md))
+
+### Additional Documentation
+
+- **[PROGRESS_SUMMARY.md](PROGRESS_SUMMARY.md)** - Comprehensive integration metrics and status
+- **[TUI_RELEASE_STANDARD.md](TUI_RELEASE_STANDARD.md)** - TUI build configurations and testing
+- **[UPSTREAM_INTEGRATION_ANALYSIS.md](UPSTREAM_INTEGRATION_ANALYSIS.md)** - 46 upstream commits analyzed
+
+### Windows-Specific Optimizations
+
+- **Shared cargo target** - Build cache at `C:\Users\<user>\.cargo\shared-target`
+- **NVCC configuration** - Automatic Visual Studio compiler detection
+- **Launch scripts** - PowerShell scripts for quick model deployment
+- **Model inventory** - JSON-based model management system
+
+**Windows Launch Scripts:**
+
+```powershell
+# Quick test with smallest model
+.\scripts\launch\launch-qwen-fast.ps1
+
+# Load Gemma 2 2B model
+.\scripts\launch\launch-gemma2.ps1
+
+# Qwen 7B for complex tasks
+.\scripts\launch\launch-qwen7b.ps1
+```
+
+<br>
+
 ## Quick examples
 
 *After following installation instructions*
