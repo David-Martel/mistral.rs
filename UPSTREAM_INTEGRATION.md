@@ -5,7 +5,7 @@
 **Upstream Repository**: `EricLBuehler/mistral.rs`
 **Integration Commits**: 46 commits ahead of fork
 
----
+______________________________________________________________________
 
 ## Executive Summary
 
@@ -13,17 +13,17 @@ Successfully integrated **5 critical bug fixes** from upstream mistral.rs into o
 
 ### Integration Statistics
 
-| Metric | Value |
-|--------|-------|
-| **Total upstream commits analyzed** | 46 |
-| **Critical commits cherry-picked** | 5 |
-| **Clean merges** | 3 |
-| **Conflicts resolved** | 2 |
-| **Files modified** | 6 |
-| **Lines changed** | +62, -31 |
-| **Compilation status** | Testing in progress |
+| Metric                              | Value               |
+| ----------------------------------- | ------------------- |
+| **Total upstream commits analyzed** | 46                  |
+| **Critical commits cherry-picked**  | 5                   |
+| **Clean merges**                    | 3                   |
+| **Conflicts resolved**              | 2                   |
+| **Files modified**                  | 6                   |
+| **Lines changed**                   | +62, -31            |
+| **Compilation status**              | Testing in progress |
 
----
+______________________________________________________________________
 
 ## Phase 1: Build Fixes (Completed)
 
@@ -32,6 +32,7 @@ Before upstream integration, we fixed local build issues:
 ### Commit: `1cacb3b10` - Phase 1 Build Fixes
 
 **Changes**:
+
 - ✅ Makefile: Platform detection (Windows/Linux/macOS)
 - ✅ Makefile: NVCC_CCBIN configuration (line 15)
 - ✅ .cargo/config.toml: NVCC environment variable (line 36)
@@ -42,7 +43,7 @@ Before upstream integration, we fixed local build issues:
 
 **Build Validation**: ✅ PASSED (1052/1052 packages, exit code 0)
 
----
+______________________________________________________________________
 
 ## Phase 2A: Critical Upstream Bug Fixes
 
@@ -68,13 +69,14 @@ The Plan agent analyzed 46 upstream commits and categorized them by priority:
 Fixed deadlock when using MCP (Model Context Protocol) integration. The server would hang indefinitely when MCP tools were invoked.
 
 **Changes**:
+
 - **File**: `mistralrs-core/src/engine/add_request.rs`
 - **Lines**: +8, -6
 - **Fix**: Corrected async task synchronization in MCP request handling
 
 **Testing**: MCP servers now respond correctly (validated in Phase 2C)
 
----
+______________________________________________________________________
 
 #### 2. Fix Flash Attention on CUDA 13.0 (#1704)
 
@@ -87,17 +89,20 @@ Fixed deadlock when using MCP (Model Context Protocol) integration. The server w
 Fixed flash attention compatibility with CUDA 13.0. The `FlashParams` struct had a redundant `causal` field that was removed.
 
 **Conflict Details**:
+
 - **File**: `mistralrs-core/src/attention/backends/flash.rs`
 - **Root Cause**: API change removed `causal` field from `FlashParams`
 - **Resolution**: Changed from destructuring to field access pattern
 - **Resolution Time**: ~7 minutes
 
 **Changes**:
+
 - **Pattern matching**: `FlashParams { max_q, ... }` → `params.max_q`
 - **Causal calculation**: Moved from `params.causal` to `causal = seq_len > 1`
 - **Validation**: ✅ Code compiles, exact match with upstream
 
 **Technical Details**:
+
 ```rust
 // Before (caused CUDA 13.0 incompatibility)
 pub struct FlashParams {
@@ -112,7 +117,7 @@ pub struct FlashParams {
 }
 ```
 
----
+______________________________________________________________________
 
 #### 3. Fix Inverted Logic in DRY Sampler (#1679)
 
@@ -125,6 +130,7 @@ pub struct FlashParams {
 Fixed inverted logic in DRY sampler sequence breaker encoding. The logic was backwards, causing panics and incorrect sampling behavior.
 
 **Bug Analysis**:
+
 ```rust
 // Before (BUGGY - inverted logic)
 if !ids.is_empty() {
@@ -142,11 +148,12 @@ if !ids.is_empty() {
 ```
 
 **Changes**:
+
 - **File**: `mistralrs-core/src/sampler.rs`
 - **Lines**: +2, -2
 - **Validation**: ✅ Logic verified correct, prevents index out of bounds panic
 
----
+______________________________________________________________________
 
 #### 4. Fix Panic in Prompt Token Truncation (#1678)
 
@@ -159,15 +166,17 @@ if !ids.is_empty() {
 Fixed panic when truncating prompt tokens at max context length. The arithmetic could overflow and cause out-of-bounds slice access.
 
 **Changes**:
+
 - **File**: `mistralrs-core/src/engine/add_request.rs`
 - **Lines**: +15, -7
 - **Improvements**:
   1. Panic prevention: `sampling_max > max_len` now handled safely
-  2. Safe arithmetic: Replaced with `saturating_sub()`
-  3. Better defaults: Changed 10-token reservation to intelligent 1-token minimum
-  4. Clear logic: Explicit `tokens_to_keep` and `slice_start` calculation
+  1. Safe arithmetic: Replaced with `saturating_sub()`
+  1. Better defaults: Changed 10-token reservation to intelligent 1-token minimum
+  1. Clear logic: Explicit `tokens_to_keep` and `slice_start` calculation
 
 **Technical Details**:
+
 ```rust
 // Before (PANIC RISK)
 let sampling_max = if let Some(sampling_max) = request.sampling_params.max_len {
@@ -192,7 +201,7 @@ let slice_start = prompt_len.saturating_sub(tokens_to_keep);  // Safe indexing
 prompt_tokens = prompt_tokens[slice_start..].to_vec();  // Cannot panic
 ```
 
----
+______________________________________________________________________
 
 #### 5. Fix Overcounting on Nonmapped Params (#1721)
 
@@ -205,12 +214,14 @@ prompt_tokens = prompt_tokens[slice_start..].to_vec();  // Cannot panic
 Fixed device mapping parameter counting bug. The system was overcounting memory by including both activation and weight bytes, when only weight bytes should be counted.
 
 **Conflict Details**:
+
 - **File**: `mistralrs-core/src/pipeline/loaders/auto_device_map.rs`
 - **Root Cause**: Memory capacity calculation logic had diverged from upstream
 - **Resolution**: Kept upstream's dynamic reserve implementation with CPU special case
 - **Resolution Time**: ~10 minutes
 
 **Changes**:
+
 - **Lines**: +31, -12
 - **Memory reserve**: Changed from fixed 90% to dynamic 2% or 512MB minimum
 - **CPU capacity**: Added unlimited capacity support (uses swap)
@@ -218,6 +229,7 @@ Fixed device mapping parameter counting bug. The system was overcounting memory 
 - **Bug fix**: Now tracks only weight bytes, not activation+weight
 
 **Key Improvements**:
+
 ```rust
 // Before (OVERCOUNTING)
 let capacity = (device_info.total_memory as f64 * 0.9) as usize;  // Fixed 90%
@@ -233,11 +245,12 @@ used_weight_bytes += layer_sizes[layer_idx];  // Only weight bytes
 ```
 
 **Special Cases**:
+
 - CPU devices: Unlimited capacity (can use swap)
 - GPU devices: Dynamic 2% reserve or 512MB minimum
 - Paged attention: Fallback with layer size backup
 
----
+______________________________________________________________________
 
 ## Conflict Resolution Summary
 
@@ -259,7 +272,7 @@ used_weight_bytes += layer_sizes[layer_idx];  // Only weight bytes
 **Time to Resolve**: 10 minutes
 **Verification**: ✅ Code compiles successfully
 
----
+______________________________________________________________________
 
 ## Commit Chain (Newest First)
 
@@ -274,7 +287,7 @@ d9398bbba - style: auto-format code via pre-commit hooks
 ddeaa5148 - fix(core,server): implement Gemini & Codex review suggestions
 ```
 
----
+______________________________________________________________________
 
 ## Known Issues Identified
 
@@ -295,35 +308,35 @@ ddeaa5148 - fix(core,server): implement Gemini & Codex review suggestions
 **Priority**: Low - doesn't prevent binary functionality
 **Notes**: Related to CUDA toolkit version compatibility
 
----
+______________________________________________________________________
 
 ## Integration Statistics
 
 ### Code Changes
 
-| Commit | Files | Insertions | Deletions | Net Change |
-|--------|-------|------------|-----------|------------|
-| #1 MCP hang fix | 1 | +8 | -6 | +2 |
-| #2 Flash attn fix | 1 | +15 | -12 | +3 |
-| #3 DRY sampler fix | 1 | +2 | -2 | 0 |
-| #4 Truncation fix | 1 | +15 | -7 | +8 |
-| #5 Device mapping fix | 1 | +31 | -12 | +19 |
-| **TOTAL** | **6** | **+71** | **-39** | **+32** |
+| Commit                | Files | Insertions | Deletions | Net Change |
+| --------------------- | ----- | ---------- | --------- | ---------- |
+| #1 MCP hang fix       | 1     | +8         | -6        | +2         |
+| #2 Flash attn fix     | 1     | +15        | -12       | +3         |
+| #3 DRY sampler fix    | 1     | +2         | -2        | 0          |
+| #4 Truncation fix     | 1     | +15        | -7        | +8         |
+| #5 Device mapping fix | 1     | +31        | -12       | +19        |
+| **TOTAL**             | **6** | **+71**    | **-39**   | **+32**    |
 
 ### Time Investment
 
-| Phase | Task | Duration |
-|-------|------|----------|
-| Phase 1 | Build fixes | ~3 hours |
-| Phase 2A | Upstream analysis (Plan agent) | ~15 minutes |
-| Phase 2A | Cherry-pick #1 (clean) | ~2 minutes |
-| Phase 2A | Cherry-pick #2 (conflict) | ~10 minutes |
-| Phase 2A | Cherry-pick #3 (clean) | ~3 minutes |
-| Phase 2A | Cherry-pick #4 (clean) | ~2 minutes |
-| Phase 2A | Cherry-pick #5 (conflict) | ~12 minutes |
-| **TOTAL Phase 2A** | | **~44 minutes** |
+| Phase              | Task                           | Duration        |
+| ------------------ | ------------------------------ | --------------- |
+| Phase 1            | Build fixes                    | ~3 hours        |
+| Phase 2A           | Upstream analysis (Plan agent) | ~15 minutes     |
+| Phase 2A           | Cherry-pick #1 (clean)         | ~2 minutes      |
+| Phase 2A           | Cherry-pick #2 (conflict)      | ~10 minutes     |
+| Phase 2A           | Cherry-pick #3 (clean)         | ~3 minutes      |
+| Phase 2A           | Cherry-pick #4 (clean)         | ~2 minutes      |
+| Phase 2A           | Cherry-pick #5 (conflict)      | ~12 minutes     |
+| **TOTAL Phase 2A** |                                | **~44 minutes** |
 
----
+______________________________________________________________________
 
 ## Agent Utilization
 
@@ -343,13 +356,13 @@ Time saved: ~5 minutes (29% faster)
 
 ### Agent Performance
 
-| Agent | Tasks | Success Rate | Average Time | Notes |
-|-------|-------|--------------|--------------|-------|
-| Plan | 1 | 100% | 15 min | Upstream commit analysis |
-| rust-pro | 5 | 100% | 5.8 min | Cherry-picks + conflict resolution |
-| **Combined** | **6** | **100%** | **~35 min total** | **Excellent efficiency** |
+| Agent        | Tasks | Success Rate | Average Time      | Notes                              |
+| ------------ | ----- | ------------ | ----------------- | ---------------------------------- |
+| Plan         | 1     | 100%         | 15 min            | Upstream commit analysis           |
+| rust-pro     | 5     | 100%         | 5.8 min           | Cherry-picks + conflict resolution |
+| **Combined** | **6** | **100%**     | **~35 min total** | **Excellent efficiency**           |
 
----
+______________________________________________________________________
 
 ## Validation Status
 
@@ -361,36 +374,36 @@ Time saved: ~5 minutes (29% faster)
 - ⏳ **MCP server tests**: Pending (9 servers to validate)
 - ⏳ **Performance benchmarks**: Pending
 
----
+______________________________________________________________________
 
 ## Next Steps
 
 ### Immediate (Phase 2B)
 
 1. ✅ Document cherry-picks → **COMPLETE (this document)**
-2. ⏳ Update TODO.md with progress
-3. ⏳ Update CLAUDE.md with findings
+1. ⏳ Update TODO.md with progress
+1. ⏳ Update CLAUDE.md with findings
 
 ### Short-term (Phase 2C)
 
 1. ⏳ Wait for compilation check results
-2. ⏳ Fix SSE streaming type errors (if confirmed)
-3. ⏳ Run comprehensive test suite
-4. ⏳ Validate MCP integration (9 servers)
-5. ⏳ Performance regression check
+1. ⏳ Fix SSE streaming type errors (if confirmed)
+1. ⏳ Run comprehensive test suite
+1. ⏳ Validate MCP integration (9 servers)
+1. ⏳ Performance regression check
 
 ### Medium-term (Phase 4)
 
 1. Fix remaining `.unwrap()` → `.expect()` (3 files)
-2. Implement poison lock recovery (4 files)
+1. Implement poison lock recovery (4 files)
 
 ### Long-term (Phase 7)
 
 1. Close duplicate PRs #3 and #4
-2. Update PR #2 with all fixes
-3. Consider upstream PR for Phase 1 build fixes
+1. Update PR #2 with all fixes
+1. Consider upstream PR for Phase 1 build fixes
 
----
+______________________________________________________________________
 
 ## Lessons Learned
 
@@ -398,7 +411,7 @@ Time saved: ~5 minutes (29% faster)
 
 ✅ **Plan agent for analysis**: Excellent categorization of 46 commits
 ✅ **Parallel agent execution**: 29% time savings on cherry-picks #3-5
-✅ **Conflict resolution by rust-pro**: Both conflicts resolved correctly in <15 min
+✅ **Conflict resolution by rust-pro**: Both conflicts resolved correctly in \<15 min
 ✅ **Incremental commits**: Each cherry-pick as separate commit for traceability
 
 ### Challenges Encountered
@@ -410,11 +423,11 @@ Time saved: ~5 minutes (29% faster)
 ### Recommendations
 
 1. **Always use agents for conflicts**: rust-pro agents resolved both conflicts faster than manual analysis
-2. **Parallel execution**: Use multiple agents for independent cherry-picks
-3. **Validation at each step**: `make check` after each cherry-pick catches issues early
-4. **Document as you go**: Created this report incrementally, not as afterthought
+1. **Parallel execution**: Use multiple agents for independent cherry-picks
+1. **Validation at each step**: `make check` after each cherry-pick catches issues early
+1. **Document as you go**: Created this report incrementally, not as afterthought
 
----
+______________________________________________________________________
 
 ## References
 
@@ -424,10 +437,9 @@ Time saved: ~5 minutes (29% faster)
 - **Backup Tag**: `backup-pre-phase2-20251122`
 - **Project Tracker**: TODO.md (738 lines, 9 phases)
 
----
+______________________________________________________________________
 
 **Report Created**: 2025-11-22
 **Last Updated**: 2025-11-22
 **Status**: Phase 2A Complete ✅ | Phase 2B In Progress ⏳
 **Next Milestone**: Phase 2C Validation
-
