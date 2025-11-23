@@ -78,7 +78,7 @@ This fork includes additional features and improvements not yet in the upstream 
 
 **11/14 Priority 1 commits integrated** from upstream with **-2,600 lines** of code cleanup:
 
-- ✅ **CUDA 13.0 Support** - Full CUDA 13.0 and RTX 50-series (sm_89) compatibility
+- ✅ **CUDA 13.0 Support** - Full CUDA 13.0 and RTX 50-series (sm_89) compatibility ⚠️
 - ✅ **Qwen 2.5 / 2.5 VL improvements** - Enhanced flash attention and vision fixes
 - ✅ **Gemma 3/3n multi-device mapping** - Q/K/V split across GPUs
 - ✅ **CPU flash attention** - Mask handling and dtype checks
@@ -87,6 +87,8 @@ This fork includes additional features and improvements not yet in the upstream 
 - ✅ **CUDA clippy compliance** - Code quality improvements
 
 See [PHASE_3A_COMPLETE.md](PHASE_3A_COMPLETE.md) for detailed integration report.
+
+> **⚠️ Windows CUDA Build Limitation**: CUDA builds currently blocked on Windows due to bindgen_cuda bug. The CUDA 13.0 code is integrated and tested, but cannot be compiled due to a Windows-specific issue in the bindgen_cuda library (v0.1.5/0.1.7). **Workarounds**: Use WSL2, Docker, or CPU-only builds. See [CUDA_BUILD_BLOCKING_ISSUE.md](CUDA_BUILD_BLOCKING_ISSUE.md) for details and investigation results.
 
 ### Enhanced TUI (Terminal User Interface)
 
