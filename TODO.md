@@ -12,12 +12,18 @@ ______________________________________________________________________
 This document tracks the 9-phase plan to:
 
 1. Fix build issues preventing compilation on Windows with CUDA
-1. Integrate 30+ upstream commits while preserving local customizations
+1. Integrate 59 upstream commits while preserving local customizations
 1. Address code quality issues from automated reviewers (Gemini, Copilot, Jules)
 1. Consolidate duplicate PRs and prepare for upstream contribution
 1. Ensure comprehensive testing and documentation
 
-**Overall Progress**: 35% (Phases 1-3A Complete)
+**Overall Progress**: ~30% (Phases 1-3A Complete, 11/59 commits integrated)
+
+**Upstream Status**:
+
+- Total upstream commits: **59** (13 new since Phase 2 analysis)
+- Already integrated: **11** (Phase 3A)
+- Remaining to integrate: **48**
 
 **Note**: See PROGRESS_SUMMARY.md for the most up-to-date status.
 
@@ -201,42 +207,123 @@ ______________________________________________________________________
 
 ### Feature Branches Created
 
-- `feature/embedding-support` - For embedding model infrastructure
-- `feature/qwen3-vl` - For Qwen3 Vision-Language support
+- `feature/embedding-support` - For embedding model infrastructure (see FEATURE_EMBEDDING_SUPPORT.md)
+- `feature/qwen3-vl` - For Qwen3 Vision-Language support (see FEATURE_QWEN3_VL.md)
+
+______________________________________________________________________
+
+## NEW: Upstream Commits Since Phase 2 Analysis ⚠️
+
+**13 new commits** appeared in upstream after the original 46-commit analysis:
+
+### Critical - Must Integrate (Phase 3B)
+
+| Commit    | PR    | Description                               | Priority |
+| --------- | ----- | ----------------------------------------- | -------- |
+| d90cbcf87 | #1722 | **Switch candle source to HF main**       | CRITICAL |
+| 28143d467 | #1733 | Fix toplevel quantization config location | HIGH     |
+| d946a96f0 | #1730 | Misc bugfixes                             | HIGH     |
+| 2bcf0e9e3 | #1721 | Fix overcounting on nonmapped params      | MEDIUM   |
+
+### Deferred to Phase 3C (New MoE Models)
+
+| Commit    | PR    | Description                             | Priority |
+| --------- | ----- | --------------------------------------- | -------- |
+| eb7d8ebd7 | #1723 | Support Fused MoE for unquantized Qwen3 | DEFERRED |
+| f7492b51c | #1731 | Support IBM Granite Hybrid MoE models   | DEFERRED |
+
+### Format/Clippy (Auto-include)
+
+| Commit    | Description            |
+| --------- | ---------------------- |
+| 96cb16611 | Clippy fixes           |
+| ab8714e75 | Format                 |
+| 4576190a8 | Format                 |
+| 43531ee5e | Remove erroneous debug |
+| ab29afd04 | Remove temp            |
+
+### Skipped (Metal-only - Not Relevant to Windows)
+
+| Commit    | PR    | Description                              | Reason     |
+| --------- | ----- | ---------------------------------------- | ---------- |
+| 930c54d78 | #1732 | Fix isnan metal build failure            | macOS only |
+| b64d86bcf | #1662 | Fix hang and performance drop with Metal | macOS only |
 
 ______________________________________________________________________
 
 ## PHASE 3B: Priority 2 Features 📋 PENDING
 
-**Objective**: Integrate new feature commits from upstream
+**Objective**: Integrate new feature commits and critical updates from upstream
 
-**Priority**: MEDIUM
-**Complexity**: Medium
-**Estimated Time**: 2-3 weeks
+**Priority**: HIGH
+**Complexity**: Medium-High
+**Estimated Time**: 24-38 hours
 **Status**: Ready to begin
 
-### Key Tasks
+### Critical Tasks (Do First)
+
+- [ ] **🔥 CRITICAL**: Switch candle source to HF main (d90cbcf87)
+
+  - Upstream changed from git rev to HuggingFace main branch
+  - Requires thorough testing after switch
+  - May affect all CUDA builds
+
+- [ ] Integrate quantization config fix (28143d467)
+
+- [ ] Integrate misc bugfixes batch (d946a96f0)
+
+- [ ] Integrate param counting fix (2bcf0e9e3)
 
 - [ ] Integrate CUDA 13.0 support (bd2bc35d0) - Low risk, high value
+
+### Feature Branch Tasks
+
 - [ ] Work on embedding support branch (7-11 hours)
+
+  - 5 commits to integrate
+  - See FEATURE_EMBEDDING_SUPPORT.md
+  - No blockers
+
 - [ ] Work on Qwen3 VL branch (10-14 hours)
+
+  - 3 commits to integrate
+  - See FEATURE_QWEN3_VL.md
+  - **⚠️ BLOCKER**: Conv3dNoBias.weight() method missing
+
+### Additional Feature Tasks
+
 - [ ] Integrate audio processing improvements (7a7883a26)
+- [ ] Integrate API enhancements (fedf2b032, ec1563c0f, 8b262783c)
+- [ ] Integrate format/clippy commits (auto-include)
 
 ______________________________________________________________________
 
 ## PHASE 3C: Priority 3 Refactorings 📋 PENDING
 
-**Objective**: Apply code quality refactorings from upstream
+**Objective**: Apply code quality refactorings and new MoE models from upstream
 
 **Priority**: LOW
 **Complexity**: Medium-High
+**Estimated Time**: 12-18 hours
 **Status**: Deferred until after Phase 3B
 
-### Key Tasks
+### New MoE Model Support (Deferred)
 
-- [ ] Performance optimizations (once_cell, normalize, busyloop)
-- [ ] Architecture improvements (flash attn dispatch, paged attn)
-- [ ] **⚠️ High Risk**: Topology system refactor (requires careful review)
+- [ ] Integrate IBM Granite Hybrid MoE models (f7492b51c)
+- [ ] Integrate Qwen3 Fused MoE optimization (eb7d8ebd7)
+
+### Performance Optimizations
+
+- [ ] Remove once_cell dependency (e03d3526d)
+- [ ] Faster mistralrs-vision normalize path (fd7c5473b)
+- [ ] No busyloop refactor (65faf59df)
+
+### Architecture Improvements
+
+- [ ] Refactor flash attn dispatch for CPU (60f33d34e)
+- [ ] Refactor/simplify paged attn modules (d101c5fce)
+- [ ] Refactor search embedding to use EmbeddingGemma (542aafde8)
+- [ ] **⚠️ High Risk**: Topology system refactor (0a2d329aa) - May conflict with device mapping
 
 ______________________________________________________________________
 
@@ -718,20 +805,33 @@ ______________________________________________________________________
 
 ### Phase Completion Status
 
-| Phase     | Status      | Progress | Tasks Complete | Estimated Time | Actual Time |
-| --------- | ----------- | -------- | -------------- | -------------- | ----------- |
-| 1         | ✅ Complete | 100%     | 9/9            | 2-4 hours      | ~3 hours    |
-| 2         | ✅ Complete | 100%     | 7/7            | 4-6 hours      | ~2 hours    |
-| 3A        | ✅ Complete | 100%     | 11/14 commits  | 6-10 hours     | ~4 hours    |
-| 3B        | 📋 Pending  | 0%       | 0/4            | 2-3 weeks      | TBD         |
-| 3C        | 📋 Pending  | 0%       | 0/3            | 1-2 weeks      | TBD         |
-| 4         | 📋 Pending  | 0%       | 0/3            | 3-5 hours      | TBD         |
-| 5         | 📋 Pending  | 0%       | 0/4            | 8-12 hours     | TBD         |
-| 6         | 📋 Pending  | 0%       | 0/1            | 2-4 hours      | TBD         |
-| 7         | 📋 Pending  | 0%       | 0/5            | 1-2 hours      | TBD         |
-| 8         | 📋 Pending  | 0%       | 0/18           | 4-6 hours      | TBD         |
-| 9         | 📋 Pending  | 0%       | 0/5            | 2-3 hours      | TBD         |
-| **Total** | **35%**     | **35%**  | **27/~73**     | **~40-60 hrs** | **~9 hrs**  |
+| Phase     | Status      | Progress | Commits/Tasks    | Estimated Time | Actual Time |
+| --------- | ----------- | -------- | ---------------- | -------------- | ----------- |
+| 1         | ✅ Complete | 100%     | 9/9 tasks        | 2-4 hours      | ~3 hours    |
+| 2         | ✅ Complete | 100%     | 46→59 analyzed   | 4-6 hours      | ~2 hours    |
+| 3A        | ✅ Complete | 100%     | 11/14 commits    | 6-10 hours     | ~4 hours    |
+| 3B        | 📋 Ready    | 0%       | ~15 commits      | 24-38 hours    | TBD         |
+| 3C        | 📋 Pending  | 0%       | ~10 commits      | 12-18 hours    | TBD         |
+| 4         | 📋 Pending  | 0%       | 3 task groups    | 3-5 hours      | TBD         |
+| 5         | 📋 Pending  | 0%       | 50+ files        | 8-12 hours     | TBD         |
+| 6         | 📋 Pending  | 0%       | 1 critical bug   | 2-4 hours      | TBD         |
+| 7         | 📋 Pending  | 0%       | PRs closed ✅    | 1-2 hours      | TBD         |
+| 8         | 📋 Pending  | 0%       | Full validation  | 4-6 hours      | TBD         |
+| 9         | 📋 Pending  | 0%       | Documentation    | 2-3 hours      | TBD         |
+| **Total** | **~30%**    | **~30%** | **48 remaining** | **58-90 hrs**  | **~9 hrs**  |
+
+### Upstream Integration Status
+
+| Category                      | Count | Status       |
+| ----------------------------- | ----- | ------------ |
+| Total upstream commits        | 59    | Analyzed     |
+| Already integrated (Phase 3A) | 11    | ✅ Done      |
+| Remaining to integrate        | 48    | Pending      |
+| Metal-only (skipped)          | 2     | N/A          |
+| Format/clippy (auto)          | 5     | Auto-include |
+| Feature commits               | ~15   | Phase 3B     |
+| Refactoring commits           | ~10   | Phase 3C     |
+| New MoE models                | 2     | Phase 3C     |
 
 ### Build Metrics
 

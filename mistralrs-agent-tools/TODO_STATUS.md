@@ -1,5 +1,14 @@
 # WinUtils Integration - TODO Status
 
+> **Note**: This TODO tracks the WinUtils agent-tools integration project.
+> For the main upstream integration project, see **[/TODO.md](/TODO.md)**.
+>
+> **Relationship**: This work is independent of the main upstream integration,
+> but should be scheduled after Phase 3B completion to avoid conflicts.
+> Estimated start: After main project reaches ~60% completion.
+
+______________________________________________________________________
+
 ## Completed ✅
 
 ### 1. Update .gitignore for winutils build artifacts
