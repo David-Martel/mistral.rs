@@ -57,3 +57,6 @@ docker-data/
 ~$*
 Thumbs.db
 nul
+
+# Claude Code local settings (machine-specific)
+.claude/settings.local.json
