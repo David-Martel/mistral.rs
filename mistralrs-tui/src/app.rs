@@ -31,7 +31,6 @@ use crate::{
 use crate::config::AgentConfig as AgentPreferences;
 
 #[cfg(feature = "tui-agent")]
-#[cfg(feature = "tui-agent")]
 use serde_json::{json, Value};
 
 #[cfg(feature = "tui-agent")]
@@ -86,6 +85,8 @@ pub enum FocusArea {
     Sessions,
     Chat,
     Models,
+    /// CLI command input panel
+    CommandLine,
     #[cfg(feature = "tui-agent")]
     AgentTools,
     #[cfg(feature = "tui-agent")]
@@ -103,6 +104,12 @@ pub struct Metrics {
 
 impl Metrics {
     pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl Default for Metrics {
+    fn default() -> Self {
         Self {
             total_tokens: 0,
             last_update: Utc::now(),
@@ -145,6 +152,16 @@ pub struct App {
     session_cursor: usize,
     active_session: SessionContext,
     model_cursor: usize,
+    /// CLI input buffer for command entry
+    cli_input: String,
+    /// CLI command history for up/down navigation
+    cli_history: Vec<String>,
+    /// Current position in CLI history
+    cli_history_cursor: usize,
+    /// CLI output lines from executed commands
+    cli_output: Vec<String>,
+    /// Maximum number of CLI output lines to retain
+    cli_output_max_lines: usize,
     #[cfg(feature = "tui-agent")]
     agent_toolkit: Option<AgentToolkit>,
     #[cfg(feature = "tui-agent")]
@@ -255,6 +272,11 @@ impl App {
             session_cursor: 0,
             active_session,
             model_cursor: 0,
+            cli_input: String::new(),
+            cli_history: Vec::new(),
+            cli_history_cursor: 0,
+            cli_output: Vec::new(),
+            cli_output_max_lines: 1000,
             #[cfg(feature = "tui-agent")]
             agent_toolkit,
             #[cfg(feature = "tui-agent")]
@@ -312,6 +334,93 @@ impl App {
         &self.metrics
     }
 
+    /// Get the CLI input buffer
+    pub fn cli_input(&self) -> &str {
+        &self.cli_input
+    }
+
+    /// Get the CLI output lines
+    pub fn cli_output(&self) -> &[String] {
+        &self.cli_output
+    }
+
+    /// Get mutable reference to CLI input
+    pub fn cli_input_mut(&mut self) -> &mut String {
+        &mut self.cli_input
+    }
+
+    /// Push a line to CLI output, trimming old lines if needed
+    pub fn push_cli_output(&mut self, line: String) {
+        self.cli_output.push(line);
+        if self.cli_output.len() > self.cli_output_max_lines {
+            self.cli_output.remove(0);
+        }
+    }
+
+    /// Execute a CLI command
+    pub fn execute_cli_command(&mut self, _runtime: &Runtime) -> Result<()> {
+        let command = self.cli_input.trim().to_string();
+        if command.is_empty() {
+            return Ok(());
+        }
+
+        // Add to history
+        if self.cli_history.is_empty() || self.cli_history.last() != Some(&command) {
+            self.cli_history.push(command.clone());
+        }
+        self.cli_history_cursor = self.cli_history.len();
+
+        // Echo command
+        self.push_cli_output(format!("$ {}", command));
+
+        // Execute using agent toolkit if available
+        #[cfg(feature = "tui-agent")]
+        {
+            if let Some(toolkit) = self.agent_toolkit.as_ref() {
+                use mistralrs_agent_tools::CommandOptions;
+
+                let options = CommandOptions {
+                    timeout: Some(30),
+                    capture_stdout: true,
+                    capture_stderr: true,
+                    ..Default::default()
+                };
+
+                match toolkit.core().execute(&command, &options) {
+                    Ok(result) => {
+                        // Format output similar to execution.rs:413-420
+                        if !result.stdout.is_empty() {
+                            for line in result.stdout.lines() {
+                                self.push_cli_output(line.to_string());
+                            }
+                        }
+                        if !result.stderr.is_empty() {
+                            self.push_cli_output("[stderr]:".to_string());
+                            for line in result.stderr.lines() {
+                                self.push_cli_output(line.to_string());
+                            }
+                        }
+                        self.push_cli_output(format!("[exit code: {}]", result.status));
+                    }
+                    Err(e) => {
+                        self.push_cli_output(format!("Error: {}", e));
+                    }
+                }
+            } else {
+                self.push_cli_output("Agent toolkit unavailable".to_string());
+            }
+        }
+
+        #[cfg(not(feature = "tui-agent"))]
+        {
+            self.push_cli_output("CLI execution requires tui-agent feature".to_string());
+        }
+
+        // Clear input
+        self.cli_input.clear();
+        Ok(())
+    }
+
     #[cfg(feature = "tui-agent")]
     pub fn agent_ui_state(&self) -> &AgentUiState {
         &self.agent_ui_state
@@ -358,8 +467,18 @@ impl App {
 
     fn handle_key(&mut self, key: KeyEvent, runtime: &Runtime) -> Result<()> {
         if key.modifiers.control && matches!(key.code, KeyCode::Char('c')) {
+            // If in CommandLine focus, Ctrl+C clears input
+            if self.focus == FocusArea::CommandLine {
+                self.cli_input.clear();
+                return Ok(());
+            }
             self.should_quit = true;
             return Ok(());
+        }
+
+        // Handle CLI input when focused
+        if self.focus == FocusArea::CommandLine {
+            return self.handle_cli_key(key, runtime);
         }
 
         // Handle palette input when visible
@@ -454,7 +573,8 @@ impl App {
                 FocusArea::Chat => FocusArea::Sessions,
                 FocusArea::Sessions => FocusArea::AgentTools,
                 FocusArea::AgentTools => FocusArea::AgentHistory,
-                FocusArea::AgentHistory => FocusArea::Chat,
+                FocusArea::AgentHistory => FocusArea::CommandLine,
+                FocusArea::CommandLine => FocusArea::Chat,
                 _ => FocusArea::Chat,
             };
             return;
@@ -463,10 +583,58 @@ impl App {
         self.focus = match self.focus {
             FocusArea::Chat => FocusArea::Sessions,
             FocusArea::Sessions => FocusArea::Models,
-            FocusArea::Models => FocusArea::Chat,
+            FocusArea::Models => FocusArea::CommandLine,
+            FocusArea::CommandLine => FocusArea::Chat,
             #[cfg(feature = "tui-agent")]
             _ => FocusArea::Chat,
         };
+    }
+
+    fn handle_cli_key(&mut self, key: KeyEvent, runtime: &Runtime) -> Result<()> {
+        match key.code {
+            KeyCode::Esc => {
+                self.focus = FocusArea::Chat;
+            }
+            KeyCode::Tab => {
+                self.cycle_focus();
+            }
+            KeyCode::Enter => {
+                self.execute_cli_command(runtime)?;
+            }
+            KeyCode::Up => {
+                // Navigate to previous command in history
+                // Cursor can be at len() (past end) to indicate "new command" state
+                if !self.cli_history.is_empty() && self.cli_history_cursor > 0 {
+                    self.cli_history_cursor -= 1;
+                    if let Some(cmd) = self.cli_history.get(self.cli_history_cursor) {
+                        self.cli_input = cmd.clone();
+                    }
+                }
+            }
+            KeyCode::Down => {
+                // Navigate to next command in history or clear for new input
+                if !self.cli_history.is_empty() {
+                    if self.cli_history_cursor < self.cli_history.len().saturating_sub(1) {
+                        self.cli_history_cursor += 1;
+                        if let Some(cmd) = self.cli_history.get(self.cli_history_cursor) {
+                            self.cli_input = cmd.clone();
+                        }
+                    } else {
+                        // Move past end to indicate "new command" mode
+                        self.cli_history_cursor = self.cli_history.len();
+                        self.cli_input.clear();
+                    }
+                }
+            }
+            KeyCode::Backspace => {
+                self.cli_input.pop();
+            }
+            KeyCode::Char(c) => {
+                self.cli_input.push(c);
+            }
+            _ => {}
+        }
+        Ok(())
     }
 
     fn move_cursor(&mut self, delta: isize) -> Result<()> {
@@ -896,10 +1064,7 @@ impl App {
                     .collect();
                 if paths.is_empty() {
                     self.status.set("Please provide at least one path.");
-                    self.pending_execution = Some(PendingExecution {
-                        tool: tool,
-                        request: request,
-                    });
+                    self.pending_execution = Some(PendingExecution { tool, request });
                     if let Some(pending) = &self.pending_execution {
                         self.agent_ui_state.begin_palette_prompt(
                             pending.request.prompt.clone(),
@@ -1085,7 +1250,7 @@ impl App {
             .and_then(|v| v.as_array())
             .map(|arr| {
                 arr.iter()
-                    .any(|entry| entry.as_str().map_or(false, |s| !s.trim().is_empty()))
+                    .any(|entry| entry.as_str().is_some_and(|s| !s.trim().is_empty()))
             })
             .unwrap_or(false)
     }
@@ -1425,6 +1590,11 @@ mod tests {
         app.cycle_focus();
         assert_eq!(app.focus(), FocusArea::Models);
         app.cycle_focus();
+        #[cfg(feature = "tui-agent")]
+        {
+            assert_eq!(app.focus(), FocusArea::CommandLine);
+            app.cycle_focus();
+        }
         assert_eq!(app.focus(), FocusArea::Chat);
     }
 

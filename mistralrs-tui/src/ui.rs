@@ -23,12 +23,17 @@ pub fn render(frame: &mut Frame<'_>, app: &App) {
 
     let layout = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Min(1), Constraint::Length(1)])
+        .constraints([
+            Constraint::Min(1),    // Main panels
+            Constraint::Length(3), // CLI panel
+            Constraint::Length(1), // Status bar
+        ])
         .split(size);
 
     #[cfg(feature = "tui-agent")]
     if app.is_agent_mode() {
-        render_agent_layout(frame, layout[0], layout[1], app);
+        render_agent_layout(frame, layout[0], layout[2], app);
+        render_cli_panel(frame, layout[1], app);
 
         // Render palette overlay if visible
         if app.agent_ui_state().palette_visible {
@@ -53,7 +58,8 @@ pub fn render(frame: &mut Frame<'_>, app: &App) {
     render_sessions(frame, main_chunks[0], app);
     render_chat(frame, main_chunks[1], app);
     render_models(frame, main_chunks[2], app);
-    render_status(frame, layout[1], app);
+    render_cli_panel(frame, layout[1], app);
+    render_status(frame, layout[2], app);
 }
 
 fn render_sessions(frame: &mut Frame<'_>, area: Rect, app: &App) {
@@ -353,4 +359,32 @@ fn render_agent_layout(frame: &mut Frame<'_>, main_area: Rect, status_area: Rect
         tool_count,
         active_calls,
     );
+}
+
+fn render_cli_panel(frame: &mut Frame<'_>, area: Rect, app: &App) {
+    // Get recent output lines (show last 1-2 lines above input)
+    let output = app.cli_output();
+    let output_lines: Vec<Line> = output
+        .iter()
+        .rev()
+        .take(1) // Only show the most recent output line
+        .rev()
+        .map(|line| Line::from(Span::raw(line.clone())))
+        .collect();
+
+    // Build the CLI display with prompt and input
+    let mut lines = output_lines;
+    let prompt = format!("CLI> {}", app.cli_input());
+    lines.push(Line::from(Span::raw(prompt)));
+
+    let mut block = Block::default().title("Command Line").borders(Borders::ALL);
+
+    // Highlight border when focused
+    if matches!(app.focus(), FocusArea::CommandLine) {
+        block = block.border_style(Style::default().fg(Color::Cyan));
+    }
+
+    let paragraph = Paragraph::new(lines).block(block).style(Style::default());
+
+    frame.render_widget(paragraph, area);
 }

@@ -74,7 +74,7 @@ impl QuantMethod for UnquantLinear {
                 DeviceLocation::Cuda { .. } => {
                     // Try to use cublaslt, otherwise fallback to gemm
                     if let (Device::Cuda(_), Some(cublaslt)) =
-                        (a.device(), CUBLASLT_CONTROLLER.get())
+                        (a.device(), CUBLASLT_CONTROLLER.get_for_device(a.device()))
                     {
                         cublaslt
                             .batch_matmul(
@@ -115,10 +115,17 @@ impl QuantMethod for UnquantLinear {
                     }
                 }
             }
-        } else if let (Device::Cuda(_), Some(cublaslt)) = (a.device(), CUBLASLT_CONTROLLER.get()) {
-            cublaslt
-                .batch_matmul(a, &w, None, None, None, None, None)?
-                .t()
+        } else if let (Device::Cuda(_), Some(cublaslt)) =
+            (a.device(), CUBLASLT_CONTROLLER.get_for_device(a.device()))
+        {
+            // cuBLAS batch_matmul requires 3D tensors, fall back to regular matmul for 2D
+            if a.rank() >= 3 && w.rank() >= 3 {
+                cublaslt
+                    .batch_matmul(a, &w, None, None, None, None, None)?
+                    .t()
+            } else {
+                MatMul.matmul(a, &w.t()?)
+            }
         } else {
             MatMul.matmul(a, &w.t()?)
         }

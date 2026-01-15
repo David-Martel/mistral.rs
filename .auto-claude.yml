@@ -337,7 +337,15 @@ custom_rules:
     description: "Avoid .unwrap() in production code"
     severity: "error"
     pattern: "\\.unwrap\\(\\)"
-    auto_fix: "Replace with ? operator or proper error handling"
+    auto_fix: "Replace with .expect() or ? operator"
+    ast_grep_rule: ".ast-grep/rules/unwrap-to-expect.yml"
+
+  - id: "mistralrs-lock-unwrap"
+    description: "Use poison-recovery pattern for lock().unwrap()"
+    severity: "warning"
+    pattern: "\\.lock\\(\\)\\.unwrap\\(\\)"
+    auto_fix: "Replace with .unwrap_or_else(|poisoned| poisoned.into_inner())"
+    ast_grep_rule: ".ast-grep/rules/lock-unwrap-recovery.yml"
 
   - id: "mistralrs-todo-format"
     description: "TODOs must include context"

@@ -20,7 +20,7 @@ use super::events::ExecutionEvent;
 use super::toolkit::ToolCall;
 
 /// Agent UI state management
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct AgentUiState {
     /// Whether the tool panel is visible
     pub panel_visible: bool,
@@ -46,25 +46,6 @@ pub struct AgentUiState {
     pub palette_cursor: usize,
     /// Pending prompt requesting additional palette input
     pub palette_prompt: Option<PalettePrompt>,
-}
-
-impl Default for AgentUiState {
-    fn default() -> Self {
-        Self {
-            panel_visible: false,
-            browser_visible: false,
-            history_visible: false,
-            tool_cursor: 0,
-            history_cursor: 0,
-            filter_text: String::new(),
-            active_execution: None,
-            execution_panel_visible: false,
-            palette_visible: false,
-            palette_filter: String::new(),
-            palette_cursor: 0,
-            palette_prompt: None,
-        }
-    }
 }
 
 impl AgentUiState {
@@ -753,7 +734,7 @@ pub fn render_execution_panel(
         "Arguments:",
         Style::default().fg(Color::Gray),
     )));
-    if let Some(args_str) = serde_json::to_string_pretty(&execution.arguments).ok() {
+    if let Ok(args_str) = serde_json::to_string_pretty(&execution.arguments) {
         for line in args_str.lines().take(5) {
             output_lines.push(Line::from(Span::styled(
                 format!("  {}", line),
@@ -856,7 +837,7 @@ pub fn render_tool_palette(
 
         let mut lines = vec![Line::from(vec![
             Span::styled(
-                format!("{}", prompt.buffer),
+                prompt.buffer.to_string(),
                 Style::default()
                     .fg(Color::White)
                     .add_modifier(Modifier::BOLD),

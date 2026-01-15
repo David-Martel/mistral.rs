@@ -61,7 +61,7 @@ fn initial_layout_snapshot() {
     inventory.refresh().expect("inventory refresh");
 
     let app = runtime
-        .block_on(App::initialise(store, inventory, None))
+        .block_on(App::initialise(store, inventory, None, None))
         .expect("app init");
 
     let backend = TestBackend::new(80, 24);
