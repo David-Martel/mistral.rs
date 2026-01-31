@@ -1,0 +1,7 @@
+id: lock-unwrap-recovery
+language: rust
+severity: warning
+message: "Use poison-recovery pattern for lock().unwrap()"
+rule:
+  pattern: $LOCK.lock().unwrap()
+fix: '$LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner())'

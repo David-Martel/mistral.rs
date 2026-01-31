@@ -1,0 +1,9 @@
+id: poor-expect-messages
+language: rust
+severity: warning
+message: "Replace uninformative expect message with descriptive context"
+rule:
+  any:
+    - pattern: '$EXPR.expect("")'
+    - pattern: '$EXPR.expect("error")'
+    - pattern: '$EXPR.expect("failed")'
