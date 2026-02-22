@@ -25,6 +25,15 @@ Rust compilation is **complex** and **time-consuming**. Direct cargo usage leads
 - ❌ Failed CUDA builds (NVCC misconfiguration)
 - ❌ Broken PyO3 bindings (Python version conflicts)
 
+## Windows Build Gotchas (CRITICAL)
+
+- **Strawberry Perl GCC** is in PATH — poisons C compilation (sqlite3 `___chkstk_ms` error). Fixed via `CC`/`CXX` in `.cargo/config.toml` pointing to full cl.exe path.
+- **MSVC include paths** must be set via `INCLUDE`/`LIB` env vars in `.cargo/config.toml` when not in VS Developer Prompt.
+- **rust-lld linker** breaks native C libraries on Windows. `.cargo/config.toml` forces `link.exe`.
+- **sccache cache** is at `T:\projects\coreutils\sccache-cache`, NOT `T:\RustCache\sccache`.
+- **CargoTools** (cargo.bat wrapper) handles sccache, linker setup, auto-copy. Makefile uses `$(CARGO)` variable.
+- **CUDA 13.1** fully supported via upstream cudaforge 0.1.2 + cudarc 0.19.0.
+
 ## Build System Architecture
 
 ### Makefile Hierarchy
@@ -359,14 +368,14 @@ make bloat-check
 **Required**:
 
 - Visual Studio 2022 Build Tools
-- CUDA Toolkit 12.9 (or 12.1, 12.6, 12.8, 13.0)
+- CUDA Toolkit 12.9 (supports 11.4 through 13.1 via cudaforge + cudarc 0.19.0)
 - cuDNN 9.8
 
 **Environment**:
 
 ```powershell
 # Makefile handles these automatically, but for reference:
-$env:NVCC_CCBIN = "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.40.33807\bin\Hostx64\x64\cl.exe"
+$env:NVCC_CCBIN = "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x64\cl.exe"
 $env:CUDA_PATH = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.9"
 $env:CUDNN_PATH = "C:\Program Files\NVIDIA\CUDNN\v9.8"
 ```
