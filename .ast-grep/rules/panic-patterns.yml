@@ -1,0 +1,73 @@
+id: panic-patterns
+language: rust
+severity: warning
+message: "Potential panic-inducing pattern detected"
+
+utils:
+  # Match any .unwrap() call
+  unwrap-pattern:
+    pattern: $EXPR.unwrap()
+
+  # Match .expect() with poor messages
+  poor-expect:
+    any:
+      - pattern: $EXPR.expect("")
+      - pattern: $EXPR.expect("error")
+      - pattern: $EXPR.expect("failed")
+
+  # Match explicit panic! calls
+  panic-call:
+    pattern: panic!($$$ARGS)
+
+  # Match unreachable! calls
+  unreachable-call:
+    pattern: unreachable!($$$ARGS)
+
+  # Match unwrap_or_default that might hide errors
+  unwrap-default:
+    pattern: $EXPR.unwrap_or_default()
+
+rule:
+  any:
+    - matches: unwrap-pattern
+      not:
+        inside:
+          any:
+            # Allow in tests
+            - kind: function_item
+              has:
+                kind: attribute_item
+                has:
+                  field: path
+                  regex: "^test$"
+            # Allow in examples
+            - kind: function_item
+              has:
+                kind: attribute_item
+                has:
+                  field: path
+                  regex: "^example$"
+
+    - matches: poor-expect
+    - matches: panic-call
+      not:
+        inside:
+          kind: macro_invocation
+          has:
+            field: macro
+            regex: "^(todo|unimplemented)$"
+    - matches: unreachable-call
+    - matches: unwrap-default
+      inside:
+        any:
+          - kind: function_item
+            has:
+              field: name
+              regex: "(parse|deserialize|from_str)"
+
+fix: |
+  # Suggested fixes:
+  # 1. .unwrap() → .expect("descriptive message explaining invariant")
+  # 2. panic!() → return Err() or use Result type
+  # 3. Add error context explaining why failure is unexpected
+  # 4. For lock().unwrap() → use unwrap_or_else(|poisoned| poisoned.into_inner())
