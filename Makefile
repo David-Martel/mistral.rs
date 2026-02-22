@@ -13,6 +13,11 @@ ifeq ($(OS),Windows_NT)
     SHELL := pwsh.exe
     # Set NVCC compiler binary path for Windows CUDA builds
     export NVCC_CCBIN := C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x64\cl.exe
+    # Use CargoTools wrapper for sccache, lld, auto-copy, and MSVC setup
+    # cargo.bat routes through CargoTools module: cargo.bat -> cargo.ps1 -> cargo-route.ps1 -> Invoke-CargoWrapper
+    CARGO := cargo
+    # Local output directory for post-build copy
+    LOCAL_BIN_DIR := target\release
 else
     UNAME_S := $(shell uname -s)
     ifeq ($(UNAME_S),Darwin)
@@ -26,6 +31,8 @@ else
         PLATFORM_FEATURES := cuda,flash-attn,cudnn,mkl
         EXCLUDE_FEATURES := --exclude metal
     endif
+    CARGO := cargo
+    LOCAL_BIN_DIR := target/release
 endif
 
 # Feature flag for all build commands
@@ -41,9 +48,11 @@ CARGO_BUILD_FLAGS ?= $(CARGO_FEATURES)
 .PHONY: show-platform
 show-platform: ## Show detected platform and features
 	@echo "Detected OS: $(DETECTED_OS)"
+	@echo "Cargo Command: $(CARGO)"
 	@echo "Platform Features: $(PLATFORM_FEATURES)"
 	@echo "Excluded Features: $(EXCLUDE_FEATURES)"
 	@echo "Build Flags: $(CARGO_BUILD_FLAGS)"
+	@echo "Output Directory: $(LOCAL_BIN_DIR)"
 
 # ============================================================================
 # Code Coverage Targets
@@ -96,7 +105,7 @@ test-coverage-fast:
 install-coverage-tools:
 	@echo "Installing code coverage tools..."
 	rustup component add llvm-tools-preview
-	cargo install cargo-llvm-cov
+	$(CARGO) install cargo-llvm-cov
 	@echo "Coverage tools installed!"
 
 # ============================================================================
@@ -107,52 +116,88 @@ install-coverage-tools:
 check: ## Quick compilation check (no codegen)
 	@echo "Running quick check on $(DETECTED_OS) platform..."
 	@echo "Using features: $(PLATFORM_FEATURES)"
-	@cargo check --workspace --all-targets $(CARGO_BUILD_FLAGS)
+	@$(CARGO) check --workspace --all-targets $(CARGO_BUILD_FLAGS)
 
 .PHONY: build
 build: ## Build all workspace members
 	@echo "Building workspace on $(DETECTED_OS) platform..."
 	@echo "Using features: $(PLATFORM_FEATURES)"
-	@cargo build --workspace $(CARGO_BUILD_FLAGS)
+	@$(CARGO) build --workspace $(CARGO_BUILD_FLAGS)
 
 .PHONY: build-release
 build-release: ## Build release binaries
 	@echo "Building release binaries on $(DETECTED_OS) platform..."
 	@echo "Using features: $(PLATFORM_FEATURES)"
-	@cargo build --workspace $(CARGO_BUILD_FLAGS) --release
+	@$(CARGO) build --workspace $(CARGO_BUILD_FLAGS) --release
 
 .PHONY: test
 test: ## Run all tests
 	@echo "Running tests on $(DETECTED_OS) platform..."
 	@echo "Using features: $(PLATFORM_FEATURES)"
-	@cargo test --workspace $(CARGO_BUILD_FLAGS)
+	@$(CARGO) test --workspace $(CARGO_BUILD_FLAGS)
 
 .PHONY: fmt
 fmt: ## Format code with rustfmt
 	@echo "Formatting code..."
-	@cargo fmt --all || (echo "Warning: rustfmt had issues but continuing..." && exit 0)
+	@$(CARGO) fmt --all || (echo "Warning: rustfmt had issues but continuing..." && exit 0)
 
 .PHONY: fmt-check
 fmt-check: ## Check code formatting
 	@echo "Checking code formatting..."
-	@cargo fmt --all -- --check
+	@$(CARGO) fmt --all -- --check
 
 .PHONY: lint
 lint: ## Run clippy linter
 	@echo "Running clippy on $(DETECTED_OS) platform..."
 	@echo "Using features: $(PLATFORM_FEATURES)"
-	@cargo clippy --workspace --all-targets $(CARGO_BUILD_FLAGS) --exclude mistralrs-pyo3 -- -D warnings || true
+	@$(CARGO) clippy --workspace --all-targets $(CARGO_BUILD_FLAGS) --exclude mistralrs-pyo3 -- -D warnings || true
 
 .PHONY: lint-fix
 lint-fix: ## Auto-fix clippy warnings
 	@echo "Auto-fixing clippy issues on $(DETECTED_OS) platform..."
 	@echo "Using features: $(PLATFORM_FEATURES)"
-	@cargo clippy --workspace --all-targets $(CARGO_BUILD_FLAGS) --exclude mistralrs-pyo3 --fix --allow-dirty --allow-staged || true
+	@$(CARGO) clippy --workspace --all-targets $(CARGO_BUILD_FLAGS) --exclude mistralrs-pyo3 --fix --allow-dirty --allow-staged || true
 
 .PHONY: clean
 clean: ## Clean build artifacts
 	@echo "Cleaning build artifacts..."
-	@cargo clean
+	@$(CARGO) clean
+
+# ============================================================================
+# Server Build Targets
+# ============================================================================
+
+.PHONY: build-server
+build-server: ## Build the mistralrs-server binary (release)
+	@echo "Building mistralrs-server on $(DETECTED_OS) platform..."
+	@echo "Using features: $(PLATFORM_FEATURES)"
+	@$(CARGO) build -p mistralrs-server $(CARGO_BUILD_FLAGS) --release
+
+.PHONY: build-cuda-full
+build-cuda-full: ## Build with all CUDA features (release)
+	@echo "Building with full CUDA features on $(DETECTED_OS) platform..."
+	@$(CARGO) build --workspace --features cuda,flash-attn,cudnn,mkl --exclude mistralrs-pyo3 --release
+
+# ============================================================================
+# Post-Build Copy (copies binaries to local target/ for easy access)
+# ============================================================================
+# CargoTools (cargo.bat) handles auto-copy from shared cache (T:\RustCache)
+# to local ./target/ automatically. This target is for manual copy or
+# when running cargo directly.
+
+.PHONY: copy-binaries
+copy-binaries: ## Copy built executables to local output directory
+ifeq ($(DETECTED_OS),Windows)
+	@echo "Ensuring local output directory exists..."
+	@if not exist "$(LOCAL_BIN_DIR)" mkdir "$(LOCAL_BIN_DIR)"
+	@echo "Copying built executables to $(LOCAL_BIN_DIR)..."
+	@pwsh -Command "Get-ChildItem -Path 'T:\RustCache\cargo-target\release\*.exe' -File | Where-Object { $$_.Name -match 'mistralrs' } | ForEach-Object { Copy-Item $$_.FullName -Destination '$(LOCAL_BIN_DIR)\' -Force; Write-Host \"  Copied: $$($_.Name)\" }"
+else
+	@mkdir -p $(LOCAL_BIN_DIR)
+	@echo "Copying built executables to $(LOCAL_BIN_DIR)..."
+	@find target/release -maxdepth 1 -type f -executable -name 'mistralrs*' -exec cp {} $(LOCAL_BIN_DIR)/ \; -exec echo "  Copied: {}" \;
+endif
+	@echo "Done. Binaries available in $(LOCAL_BIN_DIR)/"
 
 # ============================================================================
 # Enhanced Git Workflow Targets

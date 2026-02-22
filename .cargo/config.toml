@@ -28,6 +28,16 @@ SCCACHE_DIRECT = "true"
 # cargo-llvm-cov will override this to "1" automatically
 CARGO_INCREMENTAL = "0"
 
+# Force MSVC cl.exe as the C compiler (overrides Strawberry Perl's GCC in PATH)
+# Full path needed because cl.exe isn't in PATH outside VS Developer Prompt
+CC = "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.44.35207\\bin\\Hostx64\\x64\\cl.exe"
+CXX = "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.44.35207\\bin\\Hostx64\\x64\\cl.exe"
+
+# MSVC include/lib paths (required when not in Developer Command Prompt)
+# MSVC 14.44.35207 + Windows SDK 10.0.26100.0
+INCLUDE = "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.44.35207\\include;C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.26100.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.26100.0\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.26100.0\\um;C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.26100.0\\winrt"
+LIB = "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.44.35207\\lib\\x64;C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.26100.0\\ucrt\\x64;C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.26100.0\\um\\x64"
+
 # CUDA/cuDNN/MKL runtime paths
 CUDA_PATH = "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.9"
 CUDNN_PATH = "C:\\Program Files\\NVIDIA\\CUDNN\\v9.8"
@@ -38,13 +48,11 @@ MKLROOT = "C:\\Program Files (x86)\\Intel\\oneAPI\\mkl\\latest"
 NVCC_CCBIN = "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.44.35207\\bin\\Hostx64\\x64\\cl.exe"
 
 [target.x86_64-pc-windows-msvc]
-# Use rust-lld for 30-50% faster linking than link.exe
-linker = "rust-lld.exe"
+# Use MSVC link.exe — lld/rust-lld breaks native C libraries (sqlite3 ___chkstk_ms issue)
+# Rust 1.88+ defaults to lld on Windows, so explicit link.exe is required
+linker = "link.exe"
 rustflags = [
     "-C", "target-cpu=native",
-    "-C", "link-arg=/INCREMENTAL:NO",
-    "-C", "link-arg=/OPT:REF",
-    "-C", "link-arg=/OPT:ICF",
 ]
 
 [target.aarch64-apple-darwin]
