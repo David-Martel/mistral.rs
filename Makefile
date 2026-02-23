@@ -112,6 +112,18 @@ install-coverage-tools:
 # Standard Rust Development Targets
 # ============================================================================
 
+.PHONY: dev
+dev: ## Quick development build (debug mode)
+	@echo "Building workspace (debug) on $(DETECTED_OS) platform..."
+	@echo "Using features: $(PLATFORM_FEATURES)"
+	@$(CARGO) build --workspace $(CARGO_BUILD_FLAGS)
+
+.PHONY: release
+release: ## Full release build with optimizations
+	@echo "Building release binaries (LTO) on $(DETECTED_OS) platform..."
+	@echo "Using features: $(PLATFORM_FEATURES)"
+	@$(CARGO) build --workspace $(CARGO_BUILD_FLAGS) --release
+
 .PHONY: check
 check: ## Quick compilation check (no codegen)
 	@echo "Running quick check on $(DETECTED_OS) platform..."
@@ -135,6 +147,26 @@ test: ## Run all tests
 	@echo "Running tests on $(DETECTED_OS) platform..."
 	@echo "Using features: $(PLATFORM_FEATURES)"
 	@$(CARGO) test --workspace $(CARGO_BUILD_FLAGS)
+
+.PHONY: test-core
+test-core: ## Run mistralrs-core tests
+	@echo "Testing mistralrs-core on $(DETECTED_OS) platform..."
+	@$(CARGO) test -p mistralrs-core $(CARGO_BUILD_FLAGS)
+
+.PHONY: test-server
+test-server: ## Run server crate tests
+	@echo "Testing server crates on $(DETECTED_OS) platform..."
+	@$(CARGO) test -p mistralrs-server -p mistralrs-server-core $(CARGO_BUILD_FLAGS)
+
+.PHONY: test-quant
+test-quant: ## Run quantization tests
+	@echo "Testing mistralrs-quant on $(DETECTED_OS) platform..."
+	@$(CARGO) test -p mistralrs-quant $(CARGO_BUILD_FLAGS)
+
+.PHONY: test-vision
+test-vision: ## Run vision model tests
+	@echo "Testing mistralrs-vision on $(DETECTED_OS) platform..."
+	@$(CARGO) test -p mistralrs-vision $(CARGO_BUILD_FLAGS)
 
 .PHONY: fmt
 fmt: ## Format code with rustfmt

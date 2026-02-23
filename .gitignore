@@ -63,3 +63,20 @@ nul
 
 # mdbook output
 docs/book/
+# Vendored/cloned projects within agent-tools
+mistralrs-agent-tools/winutils/
+
+# Alternative build output directories
+target-cpu/
+
+# WiX installer artifacts
+wix/
+
+# Serena project config (machine-specific)
+.serena/
+
+# Claude context slices (auto-generated)
+.claude/context/slices/
+
+# Temporary operations file
+temp_ops.txt

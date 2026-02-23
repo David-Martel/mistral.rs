@@ -16,6 +16,7 @@ gpu = [
     "dep:glyphon",
 ]
 tui-agent = ["dep:mistralrs-agent-tools"]
+tui-llm = ["dep:mistralrs"]
 
 [dependencies]
 anyhow = { workspace = true }
@@ -26,6 +27,7 @@ crossterm = { version = "0.28", optional = true }
 directories = "5.0"
 futures = { workspace = true }
 indexmap = { workspace = true }
+mistralrs = { path = "../mistralrs", optional = true }
 mistralrs-agent-tools = { path = "../mistralrs-agent-tools", optional = true }
 notify = "6.1"
 once_cell = "1"
