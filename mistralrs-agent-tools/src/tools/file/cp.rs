@@ -5,8 +5,7 @@
 use crate::tools::sandbox::Sandbox;
 use crate::types::{AgentError, AgentResult};
 use std::fs;
-use std::io;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /// Options for cp operation
 #[derive(Debug, Clone, Default)]
@@ -221,9 +220,8 @@ fn copy_dir_recursive(source: &Path, dest: &Path, options: &CpOptions) -> AgentR
             e
         ))
     })? {
-        let entry = entry_result.map_err(|e| {
-            AgentError::io(format!("Failed to read directory entry: {}", e))
-        })?;
+        let entry = entry_result
+            .map_err(|e| AgentError::io(format!("Failed to read directory entry: {}", e)))?;
 
         let source_path = entry.path();
         let file_name = entry.file_name();
@@ -245,8 +243,8 @@ fn copy_dir_recursive(source: &Path, dest: &Path, options: &CpOptions) -> AgentR
 }
 
 /// Preserve file attributes (mode, timestamps)
-fn preserve_attributes(source: &Path, dest: &Path) -> AgentResult<()> {
-    let source_metadata = fs::metadata(source).map_err(|e| {
+fn preserve_attributes(source: &Path, _dest: &Path) -> AgentResult<()> {
+    let _source_metadata = fs::metadata(source).map_err(|e| {
         AgentError::io(format!(
             "Failed to get metadata for {}: {}",
             source.display(),
@@ -355,14 +353,15 @@ fn should_skip_update(source: &Path, dest: &Path) -> AgentResult<bool> {
 
     match (source_mtime, dest_mtime) {
         (Some(src), Some(dst)) => Ok(src <= dst), // Skip if source is not newer
-        _ => Ok(false), // If we can't determine, don't skip
+        _ => Ok(false),                           // If we can't determine, don't skip
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tools::sandbox::{Sandbox, SandboxConfig};
+    use crate::tools::sandbox::Sandbox;
+    use crate::types::SandboxConfig;
     use tempfile::TempDir;
 
     #[test]
@@ -440,7 +439,12 @@ mod tests {
         fs::write(&file2, "content2").expect("Failed to create file2");
         fs::create_dir(&dest_dir).expect("Failed to create dest dir");
 
-        let result = cp(&sandbox, &[&file1, &file2], &dest_dir, &CpOptions::default());
+        let result = cp(
+            &sandbox,
+            &[&file1, &file2],
+            &dest_dir,
+            &CpOptions::default(),
+        );
 
         assert!(result.is_ok());
         assert!(dest_dir.join("file1.txt").exists());

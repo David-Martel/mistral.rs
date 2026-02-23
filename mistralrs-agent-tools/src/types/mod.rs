@@ -49,6 +49,18 @@ impl std::fmt::Display for AgentError {
 
 impl std::error::Error for AgentError {}
 
+impl AgentError {
+    /// Create an I/O error from any displayable message.
+    pub fn io(msg: impl Into<String>) -> Self {
+        Self::IoError(msg.into())
+    }
+
+    /// Create an invalid-input (validation) error from any displayable message.
+    pub fn validation(msg: impl Into<String>) -> Self {
+        Self::InvalidInput(msg.into())
+    }
+}
+
 impl From<std::io::Error> for AgentError {
     fn from(err: std::io::Error) -> Self {
         match err.kind() {

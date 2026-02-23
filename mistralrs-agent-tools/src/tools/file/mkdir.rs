@@ -124,7 +124,8 @@ pub fn mkdir(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tools::sandbox::{Sandbox, SandboxConfig};
+    use crate::tools::sandbox::Sandbox;
+    use crate::types::SandboxConfig;
     use std::path::PathBuf;
     use tempfile::TempDir;
 
@@ -167,7 +168,11 @@ mod tests {
         let temp_dir = TempDir::new().expect("Failed to create temp dir");
         let sandbox = Sandbox::new(SandboxConfig::new(temp_dir.path().to_path_buf()));
 
-        let nested_dir = temp_dir.path().join("parent").join("child").join("grandchild");
+        let nested_dir = temp_dir
+            .path()
+            .join("parent")
+            .join("child")
+            .join("grandchild");
 
         let options = MkdirOptions {
             parents: true,

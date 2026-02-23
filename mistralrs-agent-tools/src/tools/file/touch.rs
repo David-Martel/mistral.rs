@@ -102,7 +102,10 @@ pub fn touch(
             update_timestamps(&validated_path, time_to_use, options)?;
 
             if existed && options.verbose {
-                eprintln!("touch: updated timestamps for '{}'", validated_path.display());
+                eprintln!(
+                    "touch: updated timestamps for '{}'",
+                    validated_path.display()
+                );
             }
         }
 
@@ -122,11 +125,7 @@ pub fn touch(
 }
 
 /// Update file timestamps based on options
-fn update_timestamps(
-    path: &Path,
-    time: SystemTime,
-    options: &TouchOptions,
-) -> AgentResult<()> {
+fn update_timestamps(path: &Path, time: SystemTime, options: &TouchOptions) -> AgentResult<()> {
     // Get current times first
     let metadata = fs::metadata(path).map_err(|e| {
         AgentError::io(format!(
@@ -136,15 +135,11 @@ fn update_timestamps(
         ))
     })?;
 
-    let current_accessed = metadata
-        .accessed()
-        .unwrap_or_else(|_| SystemTime::now());
-    let current_modified = metadata
-        .modified()
-        .unwrap_or_else(|_| SystemTime::now());
+    let current_accessed = metadata.accessed().unwrap_or_else(|_| SystemTime::now());
+    let current_modified = metadata.modified().unwrap_or_else(|_| SystemTime::now());
 
     // Determine which times to set
-    let (atime, mtime) = match (options.access_only, options.modification_only) {
+    let (_atime, _mtime) = match (options.access_only, options.modification_only) {
         (true, false) => (time, current_modified),
         (false, true) => (current_accessed, time),
         _ => (time, time), // Both or neither specified: update both
@@ -172,9 +167,10 @@ fn update_timestamps(
             modtime: mtime_sec,
         };
 
-        let c_path = std::ffi::CString::new(path.to_str().ok_or_else(|| {
-            AgentError::validation("Path contains invalid UTF-8")
-        })?)
+        let c_path = std::ffi::CString::new(
+            path.to_str()
+                .ok_or_else(|| AgentError::validation("Path contains invalid UTF-8"))?,
+        )
         .map_err(|e| AgentError::validation(format!("Invalid path: {}", e)))?;
 
         let result = unsafe { libc::utime(c_path.as_ptr(), &times) };
@@ -192,8 +188,8 @@ fn update_timestamps(
     {
         // On Windows, we use filetime crate or SetFileTime
         // For simplicity, we'll use a basic approach with limitations
-        use std::fs::File;
-        use std::io;
+        
+        
 
         // Windows doesn't have a direct equivalent to utime in std::fs
         // We'll need to use the filetime crate for proper implementation
@@ -201,16 +197,13 @@ fn update_timestamps(
 
         if !options.access_only {
             // Update modification time by opening and immediately closing
-            let file = OpenOptions::new()
-                .write(true)
-                .open(path)
-                .map_err(|e| {
-                    AgentError::io(format!(
-                        "Failed to open file for timestamp update {}: {}",
-                        path.display(),
-                        e
-                    ))
-                })?;
+            let file = OpenOptions::new().write(true).open(path).map_err(|e| {
+                AgentError::io(format!(
+                    "Failed to open file for timestamp update {}: {}",
+                    path.display(),
+                    e
+                ))
+            })?;
 
             // On Windows, we need to actually write something or use platform APIs
             // This is a simplified version - production code should use filetime crate
@@ -227,7 +220,8 @@ fn update_timestamps(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tools::sandbox::{Sandbox, SandboxConfig};
+    use crate::tools::sandbox::Sandbox;
+    use crate::types::SandboxConfig;
     use std::thread;
     use std::time::Duration;
     use tempfile::TempDir;
@@ -257,7 +251,11 @@ mod tests {
         let file2 = temp_dir.path().join("file2.txt");
         let file3 = temp_dir.path().join("file3.txt");
 
-        let result = touch(&sandbox, &[&file1, &file2, &file3], &TouchOptions::default());
+        let result = touch(
+            &sandbox,
+            &[&file1, &file2, &file3],
+            &TouchOptions::default(),
+        );
 
         assert!(result.is_ok());
         let result = result.expect("touch failed");
@@ -300,7 +298,10 @@ mod tests {
         {
             let new_metadata = fs::metadata(&file).expect("Failed to get metadata");
             let new_mtime = new_metadata.modified().expect("No mtime");
-            assert!(new_mtime > original_mtime, "Modification time should be updated");
+            assert!(
+                new_mtime > original_mtime,
+                "Modification time should be updated"
+            );
         }
     }
 

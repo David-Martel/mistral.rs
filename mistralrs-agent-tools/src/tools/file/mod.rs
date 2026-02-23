@@ -15,13 +15,13 @@
 //! - vdir: Verbose directory listing
 
 mod cat;
+mod cp;
 mod ls;
+mod mkdir;
+mod touch;
 // TODO @gemini: Implement remaining file operations
-// mod cp;
 // mod mv;
 // mod rm;
-// mod mkdir;
-// mod touch;
 // mod dd;
 // mod ln;
 // mod dir;
@@ -29,4 +29,7 @@ mod ls;
 // mod vdir;
 
 pub use cat::cat;
+pub use cp::cp;
 pub use ls::{format_size, ls};
+pub use mkdir::mkdir;
+pub use touch::touch;
