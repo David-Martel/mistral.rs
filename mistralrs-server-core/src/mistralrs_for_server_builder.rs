@@ -235,6 +235,10 @@ pub struct MistralRsForServerBuilder {
     /// Optional MCP client configuration
     mcp_client_config: Option<McpClientConfig>,
 
+    /// Optional agent tool provider configuration
+    #[cfg(feature = "agent-tools")]
+    agent_tool_provider: Option<mistralrs_agent_tools::AgentToolProvider>,
+
     /// PagedAttention KV cache type
     paged_cache_type: PagedCacheType,
 }
@@ -268,6 +272,8 @@ impl Default for MistralRsForServerBuilder {
             search_embedding_model: defaults::SEARCH_EMBEDDING_MODEL,
             search_callback: defaults::SEARCH_CALLBACK,
             mcp_client_config: None,
+            #[cfg(feature = "agent-tools")]
+            agent_tool_provider: None,
             paged_cache_type: defaults::PAGED_CACHE_TYPE,
         }
     }
@@ -583,6 +589,28 @@ impl MistralRsForServerBuilder {
         self
     }
 
+    /// Sets the agent tool provider for registering filesystem tools.
+    #[cfg(feature = "agent-tools")]
+    pub fn with_agent_tool_provider(
+        mut self,
+        provider: mistralrs_agent_tools::AgentToolProvider,
+    ) -> Self {
+        self.agent_tool_provider = Some(provider);
+        self
+    }
+
+    /// Sets the agent tool provider if provided.
+    #[cfg(feature = "agent-tools")]
+    pub fn with_agent_tool_provider_optional(
+        mut self,
+        provider: Option<mistralrs_agent_tools::AgentToolProvider>,
+    ) -> Self {
+        if let Some(provider) = provider {
+            self = self.with_agent_tool_provider(provider);
+        }
+        self
+    }
+
     /// Builds the configured mistral.rs instance.
     ///
     /// ### Examples
@@ -703,6 +731,18 @@ impl MistralRsForServerBuilder {
         // Add MCP client configuration if provided
         if let Some(mcp_config) = self.mcp_client_config {
             builder = builder.with_mcp_client(mcp_config);
+        }
+
+        // Add agent tool callbacks if provided
+        #[cfg(feature = "agent-tools")]
+        if let Some(ref provider) = self.agent_tool_provider {
+            for (name, cb_with_tool) in provider.get_tool_callbacks_with_tools() {
+                builder = builder.with_tool_callback_and_tool(
+                    name,
+                    cb_with_tool.callback,
+                    cb_with_tool.tool,
+                );
+            }
         }
 
         let mistralrs = builder.build().await;
@@ -838,6 +878,18 @@ impl MistralRsForServerBuilder {
         // Add MCP client configuration if provided
         if let Some(mcp_config) = self.mcp_client_config.clone() {
             builder = builder.with_mcp_client(mcp_config);
+        }
+
+        // Add agent tool callbacks if provided
+        #[cfg(feature = "agent-tools")]
+        if let Some(ref provider) = self.agent_tool_provider {
+            for (name, cb_with_tool) in provider.get_tool_callbacks_with_tools() {
+                builder = builder.with_tool_callback_and_tool(
+                    name,
+                    cb_with_tool.callback,
+                    cb_with_tool.tool,
+                );
+            }
         }
 
         let mistralrs = builder.build().await;

@@ -155,6 +155,14 @@ struct Args {
     /// MCP client configuration file path
     #[arg(long)]
     mcp_config: Option<String>,
+
+    /// Enable agent tools (filesystem, text processing, shell)
+    #[arg(long = "enable-agent-tools")]
+    enable_agent_tools: bool,
+
+    /// Sandbox root directory for agent tools (default: current directory)
+    #[arg(long = "agent-sandbox-root")]
+    agent_sandbox_root: Option<String>,
 }
 
 fn parse_token_source(s: &str) -> Result<TokenSource, String> {
@@ -339,6 +347,26 @@ async fn main() -> Result<()> {
     // Load MCP configuration if provided
     let mcp_config = load_mcp_config(args.mcp_config.as_deref())?;
 
+    // Create agent tool provider if enabled
+    #[cfg(feature = "agent-tools")]
+    let agent_tool_provider = if args.enable_agent_tools {
+        let sandbox_root = args
+            .agent_sandbox_root
+            .as_ref()
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+        let provider = mistralrs_agent_tools::AgentToolProvider::new(
+            mistralrs_agent_tools::SandboxConfig::new(sandbox_root),
+        );
+        info!(
+            "Agent tools enabled with {} tools",
+            provider.get_tool_callbacks_with_tools().len()
+        );
+        Some(provider)
+    } else {
+        None
+    };
+
     let paged_attn = configure_paged_attn_from_flags(args.paged_attn, args.no_paged_attn)?;
 
     let mistralrs = match args.model {
@@ -362,6 +390,11 @@ async fn main() -> Result<()> {
                 .with_log_optional(args.log)
                 .with_mcp_config_optional(mcp_config)
                 .with_paged_attn_cache_type(args.cache_type.unwrap_or_default());
+
+            #[cfg(feature = "agent-tools")]
+            {
+                builder = builder.with_agent_tool_provider_optional(agent_tool_provider);
+            }
 
             // Add models to builder
             for config in model_configs {
@@ -403,6 +436,11 @@ async fn main() -> Result<()> {
                 .with_paged_attn_block_size_optional(args.paged_attn_block_size)
                 .with_mcp_config_optional(mcp_config)
                 .with_paged_attn_cache_type(args.cache_type.unwrap_or_default());
+
+            #[cfg(feature = "agent-tools")]
+            {
+                builder = builder.with_agent_tool_provider_optional(agent_tool_provider);
+            }
 
             if let Some(model) = args.search_embedding_model {
                 builder = builder.with_search_embedding_model(model);
