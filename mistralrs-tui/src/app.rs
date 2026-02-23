@@ -176,6 +176,11 @@ pub struct App {
     agent_config: AgentPreferences,
     #[cfg(feature = "tui-agent")]
     pending_execution: Option<PendingExecution>,
+
+    /// Loaded LLM model for ReAct inference (requires `tui-llm` feature).
+    /// `None` when either the feature is absent or no model has been loaded yet.
+    #[cfg(feature = "tui-llm")]
+    llm_model: Option<Arc<mistralrs::Model>>,
 }
 
 impl App {
@@ -291,6 +296,8 @@ impl App {
             agent_config,
             #[cfg(feature = "tui-agent")]
             pending_execution: None,
+            #[cfg(feature = "tui-llm")]
+            llm_model: None,
         })
     }
 
@@ -1551,6 +1558,41 @@ impl App {
     #[cfg(feature = "tui-agent")]
     pub fn event_bus(&self) -> Option<&EventBus> {
         self.event_bus.as_ref()
+    }
+
+    /// Attach a loaded mistralrs model so the ReAct engine performs live
+    /// inference instead of returning mock responses.
+    ///
+    /// This is a no-op unless the `tui-llm` Cargo feature is enabled.
+    /// Call this after [`App::initialise`] when your start-up code has
+    /// successfully loaded a model.  The stored [`Arc<mistralrs::Model>`] is
+    /// later retrieved via [`App::llm_model`] and passed to
+    /// [`crate::agent::react::TuiReActEngine::with_model`].
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// # #[cfg(feature = "tui-llm")]
+    /// # async fn example(mut app: mistralrs_tui::App) -> anyhow::Result<()> {
+    /// use std::sync::Arc;
+    /// let model = Arc::new(
+    ///     mistralrs::ModelBuilder::new("Qwen/Qwen3-4B")
+    ///         .build()
+    ///         .await?,
+    /// );
+    /// app.set_llm_model(model);
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[cfg(feature = "tui-llm")]
+    pub fn set_llm_model(&mut self, model: Arc<mistralrs::Model>) {
+        self.llm_model = Some(model);
+    }
+
+    /// Return the attached LLM model, if any (requires `tui-llm` feature).
+    #[cfg(feature = "tui-llm")]
+    pub fn llm_model(&self) -> Option<Arc<mistralrs::Model>> {
+        self.llm_model.clone()
     }
 }
 

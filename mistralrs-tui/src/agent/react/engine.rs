@@ -190,6 +190,10 @@ pub struct TuiReActEngine {
 
     /// Session ID for tracking
     session_id: Uuid,
+
+    /// Optional real LLM model (requires `tui-llm` feature)
+    #[cfg(feature = "tui-llm")]
+    model: Option<Arc<mistralrs::Model>>,
 }
 
 impl TuiReActEngine {
@@ -234,6 +238,8 @@ impl TuiReActEngine {
             user_query: String::new(),
             cancelled: Arc::new(Mutex::new(false)),
             session_id: Uuid::new_v4(),
+            #[cfg(feature = "tui-llm")]
+            model: None,
         }
     }
 
@@ -244,6 +250,47 @@ impl TuiReActEngine {
     /// * `gatherer` - Composite context gatherer to use
     pub fn with_context_gatherer(mut self, gatherer: CompositeContextGatherer) -> Self {
         self.context_gatherer = Some(gatherer);
+        self
+    }
+
+    /// Attach a real mistralrs [`Model`] so the engine uses live LLM inference
+    /// instead of the built-in mock.  Requires the `tui-llm` Cargo feature.
+    ///
+    /// When `tui-llm` is active but no model is attached via this method the
+    /// engine falls back to the mock response, preserving backward-compatibility.
+    ///
+    /// # Arguments
+    ///
+    /// * `model` - A shared reference to a loaded [`mistralrs::Model`]
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// # #[cfg(feature = "tui-llm")]
+    /// # async fn example() -> anyhow::Result<()> {
+    /// # use std::sync::Arc;
+    /// # use mistralrs_tui::agent::react::TuiReActEngine;
+    /// # use mistralrs_tui::agent::execution::ToolExecutor;
+    /// # use mistralrs_tui::agent::events::EventBus;
+    /// # use mistralrs_agent_tools::AgentToolkit;
+    /// let toolkit = AgentToolkit::with_defaults();
+    /// let event_bus = EventBus::new(100);
+    /// let executor = ToolExecutor::with_events(toolkit, event_bus.clone());
+    ///
+    /// let model = Arc::new(
+    ///     mistralrs::ModelBuilder::new("Qwen/Qwen3-4B")
+    ///         .build()
+    ///         .await?,
+    /// );
+    ///
+    /// let engine = TuiReActEngine::new(executor, event_bus)
+    ///     .with_model(model);
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[cfg(feature = "tui-llm")]
+    pub fn with_model(mut self, model: Arc<mistralrs::Model>) -> Self {
+        self.model = Some(model);
         self
     }
 
@@ -507,12 +554,9 @@ impl TuiReActEngine {
 
         debug!("LLM prompt: {} chars", prompt.len());
 
-        // TODO: Call actual LLM here
-        // For now, return a mock thought with parsed actions
-        // In real implementation, this would call the LLM API and parse the response
-
-        // Mock response for demonstration
-        let llm_response = self.mock_llm_call(&prompt).await?;
+        // Dispatch to real LLM when tui-llm feature is active and a model is
+        // attached; otherwise fall back to the built-in mock response.
+        let llm_response = self.llm_call(&prompt).await?;
         let tool_calls: Vec<LLMToolCall> = vec![]; // Would be extracted from LLM response
 
         // Parse thought from LLM response
@@ -765,6 +809,45 @@ impl TuiReActEngine {
             .push_str("If you have a final answer, respond with 'Final Answer: <your answer>'.\n");
 
         Ok(prompt)
+    }
+
+    /// Dispatch an LLM call to the real model when available, falling back to
+    /// the mock when either the `tui-llm` feature is absent or no model has
+    /// been attached via [`Self::with_model`].
+    async fn llm_call(&self, prompt: &str) -> Result<String> {
+        #[cfg(feature = "tui-llm")]
+        if let Some(ref model) = self.model {
+            return self.real_llm_call(model, prompt).await;
+        }
+        self.mock_llm_call(prompt).await
+    }
+
+    /// Live inference path — only compiled when `tui-llm` is enabled.
+    ///
+    /// Sends the accumulated prompt to a loaded mistralrs [`Model`] and
+    /// returns the first choice's text content.
+    #[cfg(feature = "tui-llm")]
+    async fn real_llm_call(&self, model: &mistralrs::Model, prompt: &str) -> Result<String> {
+        use mistralrs::{TextMessageRole, TextMessages};
+
+        let messages = TextMessages::new()
+            .add_message(
+                TextMessageRole::System,
+                "You are a ReAct agent. Follow the Think-Act-Observe cycle. \
+                 When you have a final answer, respond with FINAL ANSWER: <answer>",
+            )
+            .add_message(TextMessageRole::User, prompt);
+
+        let response = model.send_chat_request(messages).await?;
+
+        let text = response
+            .choices
+            .first()
+            .and_then(|c| c.message.content.as_ref())
+            .map(|c| c.to_string())
+            .unwrap_or_default();
+
+        Ok(text)
     }
 
     /// Mock LLM call for testing (replace with real LLM integration)
