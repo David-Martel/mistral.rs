@@ -57,6 +57,7 @@ mod attention;
 mod diagnostics;
 mod diffusion_models;
 pub mod distributed;
+pub mod feature_detection;
 mod gguf;
 pub mod harmony;
 pub mod layers;
