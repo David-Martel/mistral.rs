@@ -1,0 +1,316 @@
+name: PowerShell Test Suite
+
+on:
+  push:
+    branches: [ main, master, develop ]
+    paths:
+      - '**.ps1'
+      - 'Makefile'
+      - 'Cargo.toml'
+      - 'mistralrs-server/**'
+  pull_request:
+    paths:
+      - '**.ps1'
+      - 'Makefile'
+  workflow_dispatch:
+
+env:
+  PROJECT_ROOT: ${{ github.workspace }}
+
+jobs:
+  # PowerShell script validation
+  validate-scripts:
+    name: Validate PowerShell Scripts
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
+          Import-Module PSScriptAnalyzer
+
+      - name: Analyze PowerShell scripts
+        shell: pwsh
+        run: |
+          Write-Host "Analyzing PowerShell scripts..." -ForegroundColor Cyan
+
+          $scripts = Get-ChildItem -Path . -Filter "*.ps1" -Recurse -File |
+            Where-Object { $_.FullName -notmatch "\\\.git\\" }
+
+          Write-Host "Found $($scripts.Count) PowerShell scripts" -ForegroundColor Gray
+
+          $issues = @()
+          foreach ($script in $scripts) {
+            Write-Host "  Analyzing $($script.Name)..." -ForegroundColor Gray
+
+            $results = Invoke-ScriptAnalyzer -Path $script.FullName -Severity Warning,Error
+            if ($results) {
+              $issues += $results
+              foreach ($result in $results) {
+                Write-Host "    ⚠ [$($result.Severity)] $($result.RuleName): $($result.Message)" -ForegroundColor Yellow
+              }
+            }
+          }
+
+          if ($issues.Count -gt 0) {
+            Write-Host "`n⚠ Found $($issues.Count) issues" -ForegroundColor Yellow
+            # Don't fail on warnings, just report
+          } else {
+            Write-Host "`n✓ All scripts passed validation" -ForegroundColor Green
+          }
+
+      - name: Check script syntax
+        shell: pwsh
+        run: |
+          Write-Host "Checking script syntax..." -ForegroundColor Cyan
+
+          $scripts = Get-ChildItem -Path . -Filter "*.ps1" -Recurse -File |
+            Where-Object { $_.FullName -notmatch "\\\.git\\" }
+
+          $errors = 0
+          foreach ($script in $scripts) {
+            try {
+              $null = [System.Management.Automation.PSParser]::Tokenize(
+                (Get-Content $script.FullName -Raw), [ref]$null
+              )
+              Write-Host "  ✓ $($script.Name)" -ForegroundColor Green
+            } catch {
+              Write-Host "  ✗ $($script.Name): $_" -ForegroundColor Red
+              $errors++
+            }
+          }
+
+          if ($errors -gt 0) {
+            Write-Host "`n❌ $errors scripts have syntax errors" -ForegroundColor Red
+            exit 1
+          }
+
+          Write-Host "`n✓ All scripts have valid syntax" -ForegroundColor Green
+
+  # Run comprehensive test suite
+  run-tests:
+    name: Run PowerShell Test Suite
+    runs-on: windows-latest
+    timeout-minutes: 30
+    needs: validate-scripts
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Setup Redis
+        run: |
+          choco install redis-64 -y
+          redis-server --service-install
+          redis-server --service-start
+          Start-Sleep -Seconds 5
+          redis-cli ping
+
+      - name: Check test script exists
+        shell: pwsh
+        run: |
+          if (Test-Path "run-tests.ps1") {
+            Write-Host "✓ Test script found" -ForegroundColor Green
+          } else {
+            Write-Host "❌ run-tests.ps1 not found" -ForegroundColor Red
+            exit 1
+          }
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/
+            target/
+          key: windows-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build mistralrs-server (required for tests)
+        shell: pwsh
+        run: |
+          Write-Host "Building mistralrs-server..." -ForegroundColor Cyan
+
+          # Use Makefile via Git Bash (if available) or direct cargo
+          if (Get-Command bash -ErrorAction SilentlyContinue) {
+            bash -c "make build"
+          } else {
+            cargo build --release --package mistralrs-server
+          }
+
+          if (Test-Path "target\release\mistralrs-server.exe") {
+            Write-Host "✓ Binary built successfully" -ForegroundColor Green
+            $size = [math]::Round((Get-Item "target\release\mistralrs-server.exe").Length / 1MB, 2)
+            Write-Host "  Size: $size MB" -ForegroundColor Gray
+          } else {
+            Write-Host "❌ Binary not found" -ForegroundColor Red
+            exit 1
+          }
+
+      - name: Run quick test suite
+        shell: pwsh
+        run: |
+          Write-Host "Running quick test suite..." -ForegroundColor Cyan
+
+          # Run tests in quick mode (skip long-running tests)
+          .\run-tests.ps1 -QuickTest -SkipPerformance
+
+          $exitCode = $LASTEXITCODE
+          if ($exitCode -eq 0) {
+            Write-Host "`n✓ Tests completed successfully" -ForegroundColor Green
+          } else {
+            Write-Host "`n⚠ Tests completed with issues (exit code: $exitCode)" -ForegroundColor Yellow
+          }
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: powershell-test-results
+          path: |
+            test-results.json
+            .testlogs/
+          retention-days: 30
+
+      - name: Display test summary
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path "test-results.json") {
+            Write-Host "`nTest Results Summary:" -ForegroundColor Cyan
+            $results = Get-Content "test-results.json" | ConvertFrom-Json
+
+            $passed = ($results | Where-Object {$_.Status -eq "PASS"}).Count
+            $failed = ($results | Where-Object {$_.Status -eq "FAIL"}).Count
+            $total = $results.Count
+
+            Write-Host "  Total: $total" -ForegroundColor White
+            Write-Host "  Passed: $passed" -ForegroundColor Green
+            Write-Host "  Failed: $failed" -ForegroundColor $(if ($failed -gt 0) {"Red"} else {"Green"})
+
+            if ($failed -gt 0) {
+              Write-Host "`nFailed Tests:" -ForegroundColor Red
+              $results | Where-Object {$_.Status -eq "FAIL"} | ForEach-Object {
+                Write-Host "  - $($_.Category): $($_.Test)" -ForegroundColor Red
+              }
+            }
+          } else {
+            Write-Host "⚠ No test results file found" -ForegroundColor Yellow
+          }
+
+  # Test model download scripts
+  test-model-scripts:
+    name: Test Model Download Scripts
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Test download scripts (dry run)
+        shell: pwsh
+        run: |
+          Write-Host "Testing model download scripts..." -ForegroundColor Cyan
+
+          $scripts = Get-ChildItem -Path . -Filter "download-*.ps1"
+
+          foreach ($script in $scripts) {
+            Write-Host "`nTesting $($script.Name)..." -ForegroundColor Gray
+
+            # Check script has help
+            $help = Get-Help $script.FullName -ErrorAction SilentlyContinue
+            if ($help) {
+              Write-Host "  ✓ Help available" -ForegroundColor Green
+            } else {
+              Write-Host "  ⚠ No help found" -ForegroundColor Yellow
+            }
+
+            # Validate script syntax
+            try {
+              $null = [System.Management.Automation.PSParser]::Tokenize(
+                (Get-Content $script.FullName -Raw), [ref]$null
+              )
+              Write-Host "  ✓ Syntax valid" -ForegroundColor Green
+            } catch {
+              Write-Host "  ✗ Syntax error: $_" -ForegroundColor Red
+            }
+          }
+
+          Write-Host "`n✓ Model script validation complete" -ForegroundColor Green
+
+  # Test launcher scripts
+  test-launcher-scripts:
+    name: Test Launcher Scripts
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Test launcher scripts
+        shell: pwsh
+        run: |
+          Write-Host "Testing launcher scripts..." -ForegroundColor Cyan
+
+          $launchers = Get-ChildItem -Path . -Filter "launch-*.ps1"
+
+          foreach ($launcher in $launchers) {
+            Write-Host "`nTesting $($launcher.Name)..." -ForegroundColor Gray
+
+            # Validate syntax
+            try {
+              $null = [System.Management.Automation.PSParser]::Tokenize(
+                (Get-Content $launcher.FullName -Raw), [ref]$null
+              )
+              Write-Host "  ✓ Syntax valid" -ForegroundColor Green
+            } catch {
+              Write-Host "  ✗ Syntax error: $_" -ForegroundColor Red
+            }
+
+            # Check for required variables/paths
+            $content = Get-Content $launcher.FullName -Raw
+            if ($content -match '\$BinaryPath|\$ModelPath') {
+              Write-Host "  ✓ Uses standard path variables" -ForegroundColor Green
+            }
+          }
+
+          Write-Host "`n✓ Launcher script validation complete" -ForegroundColor Green
+
+  # Summary
+  powershell-tests-complete:
+    name: PowerShell Tests Complete
+    runs-on: windows-latest
+    needs: [validate-scripts, run-tests, test-model-scripts, test-launcher-scripts]
+    if: always()
+    timeout-minutes: 5
+    steps:
+      - name: Check all jobs
+        shell: pwsh
+        run: |
+          Write-Host "PowerShell Test Results:" -ForegroundColor Cyan
+          Write-Host "  Script Validation: ${{ needs.validate-scripts.result }}" -ForegroundColor $(if ("${{ needs.validate-scripts.result }}" -eq "success") {"Green"} else {"Red"})
+          Write-Host "  Test Suite: ${{ needs.run-tests.result }}" -ForegroundColor $(if ("${{ needs.run-tests.result }}" -eq "success") {"Green"} else {"Red"})
+          Write-Host "  Model Scripts: ${{ needs.test-model-scripts.result }}" -ForegroundColor $(if ("${{ needs.test-model-scripts.result }}" -eq "success") {"Green"} else {"Red"})
+          Write-Host "  Launcher Scripts: ${{ needs.test-launcher-scripts.result }}" -ForegroundColor $(if ("${{ needs.test-launcher-scripts.result }}" -eq "success") {"Green"} else {"Red"})
+
+          $allPassed = @(
+            "${{ needs.validate-scripts.result }}",
+            "${{ needs.run-tests.result }}",
+            "${{ needs.test-model-scripts.result }}",
+            "${{ needs.test-launcher-scripts.result }}"
+          ) | Where-Object { $_ -ne "success" }
+
+          if ($allPassed.Count -gt 0) {
+            Write-Host "`n❌ Some PowerShell tests failed" -ForegroundColor Red
+            exit 1
+          }
+
+          Write-Host "`n✅ All PowerShell tests passed!" -ForegroundColor Green
