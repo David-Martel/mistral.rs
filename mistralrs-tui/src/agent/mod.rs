@@ -26,6 +26,12 @@ pub mod discovery;
 pub mod llm_integration;
 
 #[cfg(feature = "tui-agent")]
+pub mod context;
+
+#[cfg(feature = "tui-agent")]
+pub mod react;
+
+#[cfg(feature = "tui-agent")]
 pub use toolkit::AgentToolkit;
 
 #[cfg(feature = "tui-agent")]
@@ -36,3 +42,8 @@ pub use discovery::{ToolCatalog, ToolDefinition};
 
 #[cfg(feature = "tui-agent")]
 pub use llm_integration::{LLMIntegration, LLMToolCall};
+
+#[cfg(feature = "tui-agent")]
+pub use context::{
+    CompositeContextGatherer, ContextChunk, ContextGatherer, ContextPriority, GatheredContext,
+};

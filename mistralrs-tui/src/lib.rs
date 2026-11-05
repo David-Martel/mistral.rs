@@ -1,6 +1,7 @@
 pub mod agent;
 pub mod app;
 pub mod backend;
+pub mod components;
 pub mod config;
 pub mod input;
 pub mod inventory;

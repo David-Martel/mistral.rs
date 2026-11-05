@@ -357,25 +357,22 @@ pub struct UniqOptions {
 
 /// Shell type for command execution
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(windows, derive(Default))]
 pub enum ShellType {
     /// PowerShell (Windows default)
+    #[cfg_attr(windows, default)]
     PowerShell,
     /// Command Prompt (Windows)
     Cmd,
     /// Bash (Unix-like)
+    #[cfg_attr(not(windows), default)]
     Bash,
 }
 
+#[cfg(not(windows))]
 impl Default for ShellType {
     fn default() -> Self {
-        #[cfg(windows)]
-        {
-            Self::PowerShell
-        }
-        #[cfg(not(windows))]
-        {
-            Self::Bash
-        }
+        Self::Bash
     }
 }
 

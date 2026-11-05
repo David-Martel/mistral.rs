@@ -172,4 +172,30 @@ extern "C" {
     pub(crate) fn leftshift_u32(d_in1: *const c_void, d_out: *mut c_void, N: u32, k: i32);
     pub(crate) fn leftshift_i64(d_in1: *const c_void, d_out: *mut c_void, N: u32, k: i32);
     pub(crate) fn leftshift_i32(d_in1: *const c_void, d_out: *mut c_void, N: u32, k: i32);
+
+    // Fused GLU operations (candle 0.9.2 migration)
+    pub(crate) fn fused_glu_f16(
+        a: *const c_void,
+        b: *const c_void,
+        output: *mut c_void,
+        N: u32,
+        activation: i32,
+        stream: CUstream,
+    );
+    pub(crate) fn fused_glu_bf16(
+        a: *const c_void,
+        b: *const c_void,
+        output: *mut c_void,
+        N: u32,
+        activation: i32,
+        stream: CUstream,
+    );
+    pub(crate) fn fused_glu_f32(
+        a: *const c_void,
+        b: *const c_void,
+        output: *mut c_void,
+        N: u32,
+        activation: i32,
+        stream: CUstream,
+    );
 }

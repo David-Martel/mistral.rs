@@ -9,22 +9,17 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 /// Security policy level for agent operations
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum SecurityLevel {
     /// Maximum security: strict sandboxing, minimal permissions, no network
     Strict,
     /// Balanced security: moderate restrictions, common operations allowed
+    #[default]
     Moderate,
     /// Minimal restrictions: most operations allowed, relaxed limits
     Permissive,
     /// No security enforcement (use with extreme caution)
     Disabled,
-}
-
-impl Default for SecurityLevel {
-    fn default() -> Self {
-        Self::Moderate
-    }
 }
 
 impl SecurityLevel {

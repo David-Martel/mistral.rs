@@ -68,6 +68,10 @@ impl ModelInventory {
         self.entries.read().len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.entries.read().is_empty()
+    }
+
     pub fn default_model_id(&self) -> Option<String> {
         self.entries
             .read()

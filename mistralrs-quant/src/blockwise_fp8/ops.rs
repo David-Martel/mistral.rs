@@ -1,5 +1,3 @@
-#[cfg(feature = "cuda")]
-use candle_core::from_storage_no_op;
 use candle_core::{CpuStorage, CustomOp1, CustomOp2, DType, Result, Tensor, WithDType};
 use float8::F8E4M3;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -94,17 +92,17 @@ impl CustomOp2 for Fp8BlockwiseDequantize {
 
         match self.out_ty {
             DType::F32 => Ok((
-                CpuStorage::F32(self.dispatch_dequant_blockwise(weight, scale, weight_l, scale_l)?),
+                CpuStorage::F32(self.dispatch_dequant_blockwise(weight.as_slice(), scale.as_slice(), weight_l, scale_l)?),
                 weight_l.shape().clone(),
             )),
             DType::BF16 => Ok((
                 CpuStorage::BF16(
-                    self.dispatch_dequant_blockwise(weight, scale, weight_l, scale_l)?,
+                    self.dispatch_dequant_blockwise(weight.as_slice(), scale.as_slice(), weight_l, scale_l)?,
                 ),
                 weight_l.shape().clone(),
             )),
             DType::F16 => Ok((
-                CpuStorage::F16(self.dispatch_dequant_blockwise(weight, scale, weight_l, scale_l)?),
+                CpuStorage::F16(self.dispatch_dequant_blockwise(weight.as_slice(), scale.as_slice(), weight_l, scale_l)?),
                 weight_l.shape().clone(),
             )),
             other => candle_core::bail!("unexpected out type of fp8 blockwise dequant {other:?}"),
@@ -718,15 +716,14 @@ pub fn fp8_blockwise_quantize(
         // Create weight tensor by wrapping the CUDA storage
         let weight_storage = CudaStorage::wrap_cuda_slice(weight_output, dev.clone());
         let weight =
-            from_storage_no_op(Storage::Cuda(weight_storage), input.shape().clone(), false);
+            Tensor::from((Storage::Cuda(weight_storage), input.shape().clone()));
 
         // Create scale tensor
         let scale_storage = CudaStorage::wrap_cuda_slice(scale_output, dev.clone());
-        let scale = from_storage_no_op(
+        let scale = Tensor::from((
             Storage::Cuda(scale_storage),
             candle_core::Shape::from_dims(&[grid_y, grid_x]),
-            false,
-        );
+        ));
 
         Ok((weight, scale))
     }

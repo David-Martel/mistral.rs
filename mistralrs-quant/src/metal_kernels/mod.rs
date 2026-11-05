@@ -2419,3 +2419,75 @@ pub fn call_hqq_pack_1bit(
     encoder.dispatch_thread_groups(grid_size, threadgroup_size);
     Ok(())
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Fused GLU Implementation (candle 0.9.2 migration)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Fused GLU kernel: output = activation(a) * b
+///
+/// NOTE: This is a stub implementation. The actual Metal kernel implementation
+/// needs to be added to the .metal shader files and compiled into the metallib.
+///
+/// Args:
+///   device: Metal device
+///   ep: Encoder provider
+///   kernels: Kernel manager
+///   dtype: Data type (F16, BF16, or F32)
+///   a_buffer: First input buffer (will be activated)
+///   b_buffer: Second input buffer (multiplier)
+///   a_offset: Byte offset into a_buffer
+///   b_offset: Byte offset into b_buffer
+///   n_elements: Number of elements to process
+///   activation: Activation type (0=SiLU, 1=GELU, 2=ReLU)
+///   output: Output buffer
+#[allow(clippy::too_many_arguments)]
+pub fn call_fused_glu(
+    device: &Device,
+    ep: impl EncoderProvider,
+    kernels: &Kernels,
+    dtype: DType,
+    a_buffer: &Buffer,
+    b_buffer: &Buffer,
+    a_offset: usize,
+    b_offset: usize,
+    n_elements: usize,
+    activation: i32,
+    output: &Buffer,
+) -> Result<(), MetalKernelError> {
+    // Determine kernel name based on dtype
+    let kernel_name = match dtype {
+        DType::F32 => "fused_glu_f32",
+        DType::F16 => "fused_glu_f16",
+        DType::BF16 => "fused_glu_bf16",
+        other => {
+            return Err(MetalKernelError::DTypeMismatch {
+                expected: vec![DType::F32, DType::F16, DType::BF16],
+                got: other,
+            })
+        }
+    };
+
+    let pipeline = kernels.load_pipeline(device, kernel_name)?;
+
+    let encoder = ep.encoder();
+    let encoder: &ComputeCommandEncoderRef = encoder.as_ref();
+    encoder.set_compute_pipeline_state(&pipeline);
+
+    set_params!(
+        encoder,
+        (
+            a_buffer,
+            b_buffer,
+            output,
+            a_offset as u64,
+            b_offset as u64,
+            n_elements as u64,
+            activation
+        )
+    );
+
+    let (thread_group_count, thread_group_size) = linear_split(&pipeline, n_elements);
+    encoder.dispatch_thread_groups(thread_group_count, thread_group_size);
+    Ok(())
+}

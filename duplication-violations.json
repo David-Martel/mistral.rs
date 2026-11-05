@@ -19,15 +19,21 @@
       "severity": "error"
     },
     {
+      "file": "T:\\projects\\rust-mistral\\mistral.rs\\mistralrs-agent-tools\\winutils\\shared\\winpath\\tests\\git_bash_manual_test.rs",
+      "pattern": "_test\\.(ts|js|py|rs|jsx|tsx|cjs|mjs)$",
+      "suggestedName": "git_bash_manual.rs",
+      "severity": "error"
+    },
+    {
       "file": "T:\\projects\\rust-mistral\\mistral.rs\\mistralrs-agent-tools\\winutils\\shared\\winpath\\benches\\optimized_benchmarks.rs",
       "pattern": "^optimized_.*\\.(ts|js|py|rs|jsx|tsx|cjs|mjs)$",
       "suggestedName": "benchmarks.rs",
       "severity": "error"
     },
     {
-      "file": "T:\\projects\\rust-mistral\\mistral.rs\\mistralrs-agent-tools\\winutils\\shared\\winpath\\tests\\git_bash_manual_test.rs",
-      "pattern": "_test\\.(ts|js|py|rs|jsx|tsx|cjs|mjs)$",
-      "suggestedName": "git_bash_manual.rs",
+      "file": "T:\\projects\\rust-mistral\\mistral.rs\\mistralrs-agent-tools\\winutils\\derive-utils\\pwsh-wrapper\\src\\main_fixed.rs",
+      "pattern": "_fixed\\.(ts|js|py|rs|jsx|tsx|cjs|mjs)$",
+      "suggestedName": "main.rs",
       "severity": "error"
     },
     {
@@ -41,16 +47,10 @@
       "pattern": "_fixed\\.(ts|js|py|rs|jsx|tsx|cjs|mjs)$",
       "suggestedName": "main.rs",
       "severity": "error"
-    },
-    {
-      "file": "T:\\projects\\rust-mistral\\mistral.rs\\mistralrs-agent-tools\\winutils\\derive-utils\\pwsh-wrapper\\src\\main_fixed.rs",
-      "pattern": "_fixed\\.(ts|js|py|rs|jsx|tsx|cjs|mjs)$",
-      "suggestedName": "main.rs",
-      "severity": "error"
     }
   ],
   "totalViolations": 8,
-  "filesScanned": 1022,
+  "filesScanned": 1045,
   "canAutoFix": true,
-  "timestamp": "2025-10-08T20:26:43.027Z"
+  "timestamp": "2026-01-31T14:45:54.589Z"
 }

@@ -8,7 +8,7 @@ use std::{
 use blockwise_fp8::blockwise_fp8_linear_b;
 use candle_core::{
     quantized::{GgmlDType, QMatMul, QTensor},
-    DType, Device, Result, Tensor,
+    DType, Device, Result, Storage, Tensor,
 };
 
 #[cfg(feature = "metal")]
@@ -63,7 +63,10 @@ pub use lora::{
 pub use mxfp4::MXFP4Layer;
 pub use unquantized::UnquantLinear;
 pub use utils::isq::apply_immediate_isq;
-pub use utils::{log, BitWiseOp, CumSumOp, LeftshiftOp, NonZeroOp, SortOp, UQFF_QUANT_TYPE_OFFSET};
+pub use utils::{
+    fused_glu, log, BitWiseOp, CumSumOp, GluActivationType, LeftshiftOp, NonZeroOp, SortOp,
+    UQFF_QUANT_TYPE_OFFSET,
+};
 pub use vector_fp8::{fp8_vector_dequantize, fp8_vector_quantize};
 
 use candle_nn::{Conv1d, Conv2d, Linear, Module};

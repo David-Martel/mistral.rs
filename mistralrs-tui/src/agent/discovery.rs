@@ -411,7 +411,7 @@ mod tests {
     #[test]
     fn test_catalog_creation() {
         let catalog = ToolCatalog::new();
-        assert_eq!(catalog.tools().len(), 9);
+        assert_eq!(catalog.tools().len(), 10); // 9 base tools + 1 execute_command
     }
 
     #[test]
@@ -426,7 +426,7 @@ mod tests {
     fn test_openai_format() {
         let catalog = ToolCatalog::new();
         let functions = catalog.to_openai_functions();
-        assert_eq!(functions.len(), 9);
+        assert_eq!(functions.len(), 10); // 9 base tools + 1 execute_command
         assert!(functions[0].get("name").is_some());
         assert!(functions[0].get("description").is_some());
         assert!(functions[0].get("parameters").is_some());
@@ -436,7 +436,7 @@ mod tests {
     fn test_anthropic_format() {
         let catalog = ToolCatalog::new();
         let tools = catalog.to_anthropic_tools();
-        assert_eq!(tools.len(), 9);
+        assert_eq!(tools.len(), 10); // 9 base tools + 1 execute_command
         assert!(tools[0].get("name").is_some());
         assert!(tools[0].get("input_schema").is_some());
     }

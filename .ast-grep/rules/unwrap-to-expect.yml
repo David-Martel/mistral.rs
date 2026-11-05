@@ -1,0 +1,7 @@
+id: unwrap-to-expect
+language: rust
+severity: warning
+message: "Replace .unwrap() with .expect() for better error context"
+rule:
+  pattern: $EXPR.unwrap()
+fix: '$EXPR.expect("TODO: add error context")'

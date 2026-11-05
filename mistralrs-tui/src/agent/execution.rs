@@ -622,13 +622,14 @@ fn parse_command_options(args: &serde_json::Value) -> Result<CommandOptions> {
         .and_then(|v| v.as_bool())
         .unwrap_or(true);
 
-    let mut options = CommandOptions::default();
-    options.timeout = timeout;
-    options.shell = shell;
-    options.working_dir = working_dir;
-    options.env = env_pairs;
-    options.capture_stdout = capture_stdout;
-    options.capture_stderr = capture_stderr;
+    let options = CommandOptions {
+        timeout,
+        shell,
+        working_dir,
+        env: env_pairs,
+        capture_stdout,
+        capture_stderr,
+    };
 
     Ok(options)
 }
