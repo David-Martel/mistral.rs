@@ -205,9 +205,22 @@ fn main() -> Result<(), String> {
         for lib_file in lib_files.iter() {
             println!("cargo:rerun-if-changed={lib_file}");
         }
+        // Get CUDA include path for Windows (bindgen_cuda doesn't auto-detect it)
+        // We leak this string because bindgen_cuda::Builder requires 'static lifetime
+        let cuda_include_arg: &'static str = Box::leak(
+            std::env::var("CUDA_PATH")
+                .map(|p| format!("-I{}/include", p))
+                .unwrap_or_else(|_| {
+                    // Fallback to common Windows CUDA installation path
+                    "-IC:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.9\\include".to_string()
+                })
+                .into_boxed_str(),
+        );
+
         let mut builder = bindgen_cuda::Builder::default()
             .kernel_paths(lib_files)
             .out_dir(build_dir.clone())
+            .arg(cuda_include_arg)
             .arg("-std=c++17")
             .arg("-O3")
             .arg("-U__CUDA_NO_HALF_OPERATORS__")

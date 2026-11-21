@@ -1,7 +1,7 @@
 #![allow(unused)]
 
 use candle_core::{
-    backend::BackendStorage, from_storage_no_op, DType, MetalStorage, Result, Shape, Storage,
+    backend::BackendStorage, DType, MetalStorage, Result, Shape, Storage,
     Tensor, D,
 };
 
@@ -72,7 +72,7 @@ pub(crate) fn afq_quantize_op(
         // This is necessary to avoid the errors of "A command encoder is already encoding to this command buffer"
         command_buffer.commit();
 
-        let output = from_storage_no_op(
+        let output = Tensor::from((
             Storage::Metal(MetalStorage::new(
                 output,
                 device.clone(),
@@ -80,9 +80,8 @@ pub(crate) fn afq_quantize_op(
                 DType::U32,
             )),
             wq_shape,
-            false,
-        );
-        let scales = from_storage_no_op(
+        ));
+        let scales = Tensor::from((
             Storage::Metal(MetalStorage::new(
                 scales,
                 device.clone(),
@@ -90,9 +89,8 @@ pub(crate) fn afq_quantize_op(
                 w.dtype(),
             )),
             s_shape.clone(),
-            false,
-        );
-        let biases = from_storage_no_op(
+        ));
+        let biases = Tensor::from((
             Storage::Metal(MetalStorage::new(
                 biases,
                 device.clone(),
@@ -100,8 +98,7 @@ pub(crate) fn afq_quantize_op(
                 w.dtype(),
             )),
             s_shape,
-            false,
-        );
+        ));
 
         Ok((output, scales, biases))
     }
@@ -185,7 +182,7 @@ pub(crate) fn afq_dequantize_op(
         )
         .map_err(candle_core::Error::wrap)?;
 
-        let output = from_storage_no_op(
+        let output = Tensor::from((
             Storage::Metal(MetalStorage::new(
                 output,
                 device.clone(),
@@ -193,8 +190,7 @@ pub(crate) fn afq_dequantize_op(
                 scales.dtype(),
             )),
             w_shape,
-            false,
-        );
+        ));
 
         Ok(output)
     }
@@ -409,7 +405,7 @@ pub(crate) fn afq_mm_op(
             (output, out_shape)
         };
 
-        let output = from_storage_no_op(
+        let output = Tensor::from((
             Storage::Metal(MetalStorage::new(
                 output,
                 device.clone(),
@@ -417,8 +413,7 @@ pub(crate) fn afq_mm_op(
                 scales.dtype(),
             )),
             out_shape,
-            false,
-        );
+        ));
 
         Ok(output)
     }
